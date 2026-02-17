@@ -3,7 +3,6 @@
 pub struct ParsedUnit {
     pub chassis: String,
     pub model: String,
-    pub mul_id: Option<i32>,
     pub unit_type: UnitType,
     pub tech_base: TechBase,
     pub rules_level: RulesLevel,
@@ -63,15 +62,6 @@ pub enum TechBase {
 }
 
 impl TechBase {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            TechBase::InnerSphere => "inner_sphere",
-            TechBase::Clan => "clan",
-            TechBase::Mixed => "mixed",
-            TechBase::Primitive => "primitive",
-        }
-    }
-
     pub fn from_str(s: &str) -> Self {
         let lower = s.to_lowercase();
         if lower.contains("clan") && !lower.contains("inner") {
@@ -96,16 +86,6 @@ pub enum RulesLevel {
 }
 
 impl RulesLevel {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            RulesLevel::Introductory => "introductory",
-            RulesLevel::Standard => "standard",
-            RulesLevel::Advanced => "advanced",
-            RulesLevel::Experimental => "experimental",
-            RulesLevel::Unofficial => "unofficial",
-        }
-    }
-
     /// Parse from the integer used in MTF `rules level:N`
     pub fn from_int(n: i32) -> Self {
         match n {
@@ -140,7 +120,6 @@ impl RulesLevel {
 pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
     let mut chassis = String::new();
     let mut model = String::new();
-    let mut mul_id: Option<i32> = None;
     let mut config = String::new(); // Biped, Quad, etc.
     let mut tech_base = TechBase::InnerSphere;
     let mut rules_level = RulesLevel::Standard;
@@ -158,7 +137,6 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
     let mut loadout: Vec<ParsedLoadoutEntry> = Vec::new();
 
     // Location section parsing
-    let mut in_weapons = false;
     let mut current_loc: Option<&'static str> = None;
 
     for raw_line in content.lines() {
@@ -205,17 +183,14 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
         // Location section headers end with ":" and have a canonical name
         if val.is_empty() {
             current_loc = mtf_location_header(&key);
-            in_weapons = false;
             continue;
         }
 
         current_loc = None; // reset when we see a key:value pair
-        in_weapons = false;
 
         match key.as_str() {
             "chassis" => chassis = val.clone(),
             "model" => model = val.clone(),
-            "mul id" => mul_id = val.parse().ok(),
             "config" => config = val.clone(),
             "techbase" | "tech base" => tech_base = TechBase::from_str(&val),
             "era" => intro_year = val.parse().ok(),
@@ -253,10 +228,6 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
             }
         }
 
-        // Weapons section: "weapons:7"
-        if key == "weapons" {
-            in_weapons = true;
-        }
     }
 
     // Second pass for weapons lines (they follow "Weapons:N" with no leading key)
@@ -301,7 +272,6 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
     Some(ParsedUnit {
         chassis,
         model,
-        mul_id,
         unit_type,
         tech_base,
         rules_level,
@@ -504,10 +474,6 @@ pub fn parse_blk(content: &str, default_unit_type: UnitType) -> Option<ParsedUni
         .get("Model")
         .map(|s| s.trim().to_string())
         .unwrap_or_default();
-    let mul_id = tags
-        .get("mul id:")
-        .or_else(|| tags.get("mul id"))
-        .and_then(|s| s.trim().parse().ok());
     let tonnage: f64 = tags.get("tonnage")?.trim().parse().ok()?;
     let intro_year: Option<i32> = tags.get("year").and_then(|s| s.trim().parse().ok());
     let source = tags.get("source").map(|s| s.trim().to_string());
@@ -553,7 +519,6 @@ pub fn parse_blk(content: &str, default_unit_type: UnitType) -> Option<ParsedUni
     Some(ParsedUnit {
         chassis,
         model,
-        mul_id,
         unit_type,
         tech_base,
         rules_level,

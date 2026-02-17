@@ -1,3 +1,5 @@
+#![allow(dead_code)] // Fields populated by sqlx FromRow may not all be read in Rust
+
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::FromRow;
 

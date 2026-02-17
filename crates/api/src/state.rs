@@ -5,6 +5,7 @@ use sqlx::PgPool;
 pub type AppCache = Cache<String, serde_json::Value>;
 
 #[derive(Clone)]
+#[allow(dead_code)] // cache provisioned for future use
 pub struct AppState {
     pub pool: PgPool,
     pub cache: AppCache,
