@@ -57,7 +57,7 @@ HTTP POST /graphql
 ```
 
 **Key constraints baked into the schema:**
-- Depth limit: 12, Complexity limit: 500 (`graphql/schema.rs`)
+- Depth limit: 20, Complexity limit: 500 (`graphql/schema.rs`). Depth is set to 20 (not lower) because GraphiQL's introspection query needs ~15 levels.
 - Expensive fields annotated with `#[graphql(complexity = N)]`: `locations` (5), `loadout` (10), `quirks` (3), `availability` (5), `variants` (5)
 - `unitsByIds` accepts at most 24 slugs
 
