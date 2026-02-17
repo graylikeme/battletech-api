@@ -1,0 +1,297 @@
+/// Database upsert operations for scraped unit data.
+///
+/// Uses runtime sqlx::query (no `!` macro) to avoid compile-time type resolution
+/// issues with custom PostgreSQL enum types.
+use std::collections::HashMap;
+
+use anyhow::Context;
+use rust_decimal::Decimal;
+use sqlx::{PgPool, Row};
+
+use crate::parse::{ParsedUnit, TechBase, RulesLevel};
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+fn tech_base_str(tb: TechBase) -> &'static str {
+    match tb {
+        TechBase::InnerSphere => "inner_sphere",
+        TechBase::Clan       => "clan",
+        TechBase::Mixed      => "mixed",
+        TechBase::Primitive  => "primitive",
+    }
+}
+
+fn rules_level_str(rl: RulesLevel) -> &'static str {
+    match rl {
+        RulesLevel::Introductory => "introductory",
+        RulesLevel::Standard     => "standard",
+        RulesLevel::Advanced     => "advanced",
+        RulesLevel::Experimental => "experimental",
+        RulesLevel::Unofficial   => "unofficial",
+    }
+}
+
+fn to_decimal(f: f64) -> Decimal {
+    Decimal::try_from(f).unwrap_or(Decimal::ZERO)
+}
+
+// ── equipment ─────────────────────────────────────────────────────────────────
+
+/// Upsert a piece of equipment by slug and return its id.
+pub async fn upsert_equipment(
+    pool: &PgPool,
+    slug: &str,
+    name: &str,
+    category: &str,
+    tech_base: TechBase,
+    rules_level: RulesLevel,
+) -> anyhow::Result<i32> {
+    let row = sqlx::query(
+        r#"
+        INSERT INTO equipment (slug, name, category, tech_base, rules_level)
+        VALUES ($1, $2, $3::equipment_category_enum, $4::tech_base_enum, $5::rules_level_enum)
+        ON CONFLICT (slug) DO UPDATE
+            SET name        = EXCLUDED.name,
+                category    = EXCLUDED.category,
+                tech_base   = EXCLUDED.tech_base,
+                rules_level = EXCLUDED.rules_level
+        RETURNING id
+        "#,
+    )
+    .bind(slug)
+    .bind(name)
+    .bind(category)
+    .bind(tech_base_str(tech_base))
+    .bind(rules_level_str(rules_level))
+    .fetch_one(pool)
+    .await
+    .with_context(|| format!("upsert_equipment: {slug}"))?;
+
+    Ok(row.try_get("id")?)
+}
+
+// ── chassis ───────────────────────────────────────────────────────────────────
+
+/// Upsert a chassis row and return its id.
+pub async fn upsert_chassis(pool: &PgPool, unit: &ParsedUnit) -> anyhow::Result<i32> {
+    let slug    = crate::parse::to_slug(&unit.chassis);
+    let tonnage = to_decimal(unit.tonnage);
+
+    let row = sqlx::query(
+        r#"
+        INSERT INTO unit_chassis (slug, name, unit_type, tech_base, tonnage, intro_year, description)
+        VALUES ($1, $2, $3, $4::tech_base_enum, $5, $6, $7)
+        ON CONFLICT (slug) DO UPDATE
+            SET name        = EXCLUDED.name,
+                unit_type   = EXCLUDED.unit_type,
+                tech_base   = EXCLUDED.tech_base,
+                tonnage     = EXCLUDED.tonnage,
+                intro_year  = EXCLUDED.intro_year,
+                description = EXCLUDED.description
+        RETURNING id
+        "#,
+    )
+    .bind(&slug)
+    .bind(&unit.chassis)
+    .bind(unit.unit_type.as_str())
+    .bind(tech_base_str(unit.tech_base))
+    .bind(tonnage)
+    .bind(unit.intro_year)
+    .bind(unit.description.as_deref())
+    .fetch_one(pool)
+    .await
+    .with_context(|| format!("upsert_chassis: {slug}"))?;
+
+    Ok(row.try_get("id")?)
+}
+
+// ── unit ──────────────────────────────────────────────────────────────────────
+
+/// Upsert a unit variant row and return its id.
+pub async fn upsert_unit(
+    pool: &PgPool,
+    unit: &ParsedUnit,
+    chassis_id: i32,
+) -> anyhow::Result<i32> {
+    let full_name = if unit.model.is_empty() {
+        unit.chassis.clone()
+    } else {
+        format!("{} {}", unit.chassis, unit.model)
+    };
+    let slug    = crate::parse::to_slug(&full_name);
+    let tonnage = to_decimal(unit.tonnage);
+
+    let row = sqlx::query(
+        r#"
+        INSERT INTO units (
+            slug, chassis_id, variant, full_name,
+            tech_base, rules_level,
+            tonnage, intro_year, source_book, description
+        )
+        VALUES ($1, $2, $3, $4, $5::tech_base_enum, $6::rules_level_enum, $7, $8, $9, $10)
+        ON CONFLICT (slug) DO UPDATE
+            SET chassis_id  = EXCLUDED.chassis_id,
+                variant     = EXCLUDED.variant,
+                full_name   = EXCLUDED.full_name,
+                tech_base   = EXCLUDED.tech_base,
+                rules_level = EXCLUDED.rules_level,
+                tonnage     = EXCLUDED.tonnage,
+                intro_year  = EXCLUDED.intro_year,
+                source_book = EXCLUDED.source_book,
+                description = EXCLUDED.description
+        RETURNING id
+        "#,
+    )
+    .bind(&slug)
+    .bind(chassis_id)
+    .bind(&unit.model)          // variant column
+    .bind(&full_name)
+    .bind(tech_base_str(unit.tech_base))
+    .bind(rules_level_str(unit.rules_level))
+    .bind(tonnage)
+    .bind(unit.intro_year)
+    .bind(unit.source.as_deref()) // source_book column
+    .bind(unit.description.as_deref())
+    .fetch_one(pool)
+    .await
+    .with_context(|| format!("upsert_unit: {slug}"))?;
+
+    Ok(row.try_get("id")?)
+}
+
+// ── locations ─────────────────────────────────────────────────────────────────
+
+/// Delete existing location rows then bulk-insert fresh ones.
+pub async fn replace_locations(
+    pool: &PgPool,
+    unit_id: i32,
+    unit: &ParsedUnit,
+) -> anyhow::Result<()> {
+    sqlx::query("DELETE FROM unit_locations WHERE unit_id = $1")
+        .bind(unit_id)
+        .execute(pool)
+        .await?;
+
+    for loc in &unit.locations {
+        sqlx::query(
+            r#"
+            INSERT INTO unit_locations (unit_id, location, armor_points, rear_armor, structure_points)
+            VALUES ($1, $2::location_name_enum, $3, $4, $5)
+            "#,
+        )
+        .bind(unit_id)
+        .bind(loc.location)
+        .bind(loc.armor)
+        .bind(loc.rear_armor)
+        .bind(loc.structure)
+        .execute(pool)
+        .await
+        .with_context(|| format!("insert location {} for unit {unit_id}", loc.location))?;
+    }
+    Ok(())
+}
+
+// ── loadout ───────────────────────────────────────────────────────────────────
+
+/// Delete existing loadout rows then bulk-insert fresh ones.
+/// `equipment_cache` maps equipment slug → id (populated/extended in-place).
+pub async fn replace_loadout(
+    pool: &PgPool,
+    unit_id: i32,
+    unit: &ParsedUnit,
+    equipment_cache: &mut HashMap<String, i32>,
+) -> anyhow::Result<()> {
+    sqlx::query("DELETE FROM unit_loadout WHERE unit_id = $1")
+        .bind(unit_id)
+        .execute(pool)
+        .await?;
+
+    for entry in &unit.loadout {
+        let eq_slug = crate::parse::to_slug(&entry.equipment);
+        let eq_id = if let Some(&id) = equipment_cache.get(&eq_slug) {
+            id
+        } else {
+            let category    = crate::parse::categorize_equipment(&entry.equipment);
+            let tech_base_s = crate::parse::equipment_tech_base(&entry.equipment);
+            let tb = match tech_base_s {
+                "clan"      => TechBase::Clan,
+                "mixed"     => TechBase::Mixed,
+                "primitive" => TechBase::Primitive,
+                _           => TechBase::InnerSphere,
+            };
+            let id = upsert_equipment(pool, &eq_slug, &entry.equipment, category, tb, unit.rules_level).await?;
+            equipment_cache.insert(eq_slug.clone(), id);
+            id
+        };
+
+        sqlx::query(
+            r#"
+            INSERT INTO unit_loadout (unit_id, equipment_id, location, quantity, is_rear_facing)
+            VALUES ($1, $2, $3::location_name_enum, $4, $5)
+            "#,
+        )
+        .bind(unit_id)
+        .bind(eq_id)
+        .bind(entry.location)   // Option<&'static str> → cast to enum in SQL
+        .bind(entry.quantity)
+        .bind(entry.is_rear)    // is_rear_facing column
+        .execute(pool)
+        .await
+        .with_context(|| format!("insert loadout entry {} for unit {unit_id}", entry.equipment))?;
+    }
+    Ok(())
+}
+
+// ── quirks ────────────────────────────────────────────────────────────────────
+
+/// Ensure quirk row exists; return its id.
+async fn ensure_quirk(pool: &PgPool, slug: &str) -> anyhow::Result<i32> {
+    let row = sqlx::query(
+        r#"
+        INSERT INTO quirks (slug, name)
+        VALUES ($1, $2)
+        ON CONFLICT (slug) DO NOTHING
+        RETURNING id
+        "#,
+    )
+    .bind(slug)
+    .bind(slug) // name placeholder; real names not in MTF/BLK
+    .fetch_optional(pool)
+    .await?;
+
+    if let Some(r) = row {
+        return Ok(r.try_get("id")?);
+    }
+
+    // Row already existed — fetch id
+    let r = sqlx::query("SELECT id FROM quirks WHERE slug = $1")
+        .bind(slug)
+        .fetch_one(pool)
+        .await
+        .with_context(|| format!("ensure_quirk fetch: {slug}"))?;
+    Ok(r.try_get("id")?)
+}
+
+/// Delete existing unit_quirks rows then bulk-insert fresh ones.
+pub async fn replace_quirks(
+    pool: &PgPool,
+    unit_id: i32,
+    quirks: &[String],
+) -> anyhow::Result<()> {
+    sqlx::query("DELETE FROM unit_quirks WHERE unit_id = $1")
+        .bind(unit_id)
+        .execute(pool)
+        .await?;
+
+    for quirk_slug in quirks {
+        let quirk_id = ensure_quirk(pool, quirk_slug).await?;
+        sqlx::query(
+            "INSERT INTO unit_quirks (unit_id, quirk_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        )
+        .bind(unit_id)
+        .bind(quirk_id)
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}

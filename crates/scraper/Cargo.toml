@@ -1,0 +1,19 @@
+[package]
+name = "scraper"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "scraper"
+path = "src/main.rs"
+
+[dependencies]
+tokio        = { version = "1", features = ["full"] }
+sqlx         = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "rust_decimal"] }
+rust_decimal = { version = "1" }
+zip          = "2"
+clap         = { version = "4", features = ["derive", "env"] }
+tracing      = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow       = "1"
+dotenvy      = "0.15"
