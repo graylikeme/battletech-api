@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, slug, name, unit_type, tech_base::text AS \"tech_base!\",\n                  tonnage, intro_year, description\n           FROM unit_chassis WHERE slug = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "unit_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "tech_base!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "tonnage",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 6,
+        "name": "intro_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "description",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "0625025c597d803a325375cb6b548854a5b9d24f56c5d34b95ca7e6c491dcc67"
+}

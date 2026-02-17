@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, slug, name, start_year, end_year, description\n           FROM eras\n           WHERE start_year <= $1 AND (end_year IS NULL OR end_year >= $1)\n           ORDER BY start_year",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "start_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "end_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "description",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "81765a6a641bff4678161ad367a8f409601ec1e9f6766b20e647d6a4fff18236"
+}

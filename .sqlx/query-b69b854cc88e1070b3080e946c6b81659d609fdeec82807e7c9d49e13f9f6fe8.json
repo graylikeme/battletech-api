@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, unit_id, location::text AS \"location!\",\n                  armor_points, rear_armor, structure_points\n           FROM unit_locations WHERE unit_id = $1 ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "unit_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "location!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "armor_points",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "rear_armor",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "structure_points",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b69b854cc88e1070b3080e946c6b81659d609fdeec82807e7c9d49e13f9f6fe8"
+}

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT f.slug AS faction_slug, f.name AS faction_name,\n                      e.slug AS era_slug, e.name AS era_name,\n                      ua.availability_code, ua.notes\n               FROM unit_availability ua\n               JOIN factions f ON f.id = ua.faction_id\n               JOIN eras e ON e.id = ua.era_id\n               WHERE ua.unit_id = $1\n               ORDER BY e.start_year, f.name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "faction_slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "faction_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "era_slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "era_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "availability_code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "notes",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "8f691f755c759458d5742f8ff0eaa6245e17e3b08cc3c763c3f642ad1c28556b"
+}

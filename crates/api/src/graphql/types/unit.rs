@@ -79,7 +79,7 @@ impl UnitChassisGql {
         let rows = sqlx::query_as!(
             DbUnit,
             r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
-                      u.tech_base::text AS tech_base, u.rules_level::text AS rules_level,
+                      u.tech_base::text AS "tech_base!", u.rules_level::text AS "rules_level!",
                       u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
                       u.reintro_year, u.source_book, u.description, NULL::bigint AS total_count
                FROM units u WHERE u.chassis_id = $1 ORDER BY u.variant"#,
@@ -157,7 +157,7 @@ impl UnitGql {
         let state = ctx.data::<AppState>().unwrap();
         let row = sqlx::query_as!(
             DbUnitChassis,
-            r#"SELECT id, slug, name, unit_type, tech_base::text AS tech_base,
+            r#"SELECT id, slug, name, unit_type, tech_base::text AS "tech_base!",
                       tonnage, intro_year, description
                FROM unit_chassis WHERE id = $1"#,
             self.0.chassis_id

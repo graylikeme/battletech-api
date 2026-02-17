@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ul.id, ul.unit_id, ul.equipment_id,\n                  ul.location::text AS location,\n                  ul.quantity, ul.is_rear_facing, ul.notes,\n                  e.slug AS equipment_slug, e.name AS equipment_name\n           FROM unit_loadout ul\n           JOIN equipment e ON e.id = ul.equipment_id\n           WHERE ul.unit_id = $1\n           ORDER BY ul.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "unit_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "equipment_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "location",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "quantity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_rear_facing",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "notes",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "equipment_slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "equipment_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "555c8ed119971815050920c16e49c96705dd670443c50fc31ac4d12760504db5"
+}

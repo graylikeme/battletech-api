@@ -1,0 +1,130 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, slug, name,\n                  category::text AS \"category!\", tech_base::text AS \"tech_base!\",\n                  rules_level::text AS \"rules_level!\",\n                  tonnage, crits, damage, heat,\n                  range_min, range_short, range_medium, range_long, bv, intro_year,\n                  source_book, description, NULL::bigint AS total_count\n           FROM equipment WHERE slug = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "category!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "tech_base!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "rules_level!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "tonnage",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "crits",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "damage",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "heat",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "range_min",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "range_short",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "range_medium",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 13,
+        "name": "range_long",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 14,
+        "name": "bv",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 15,
+        "name": "intro_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 16,
+        "name": "source_book",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 17,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 18,
+        "name": "total_count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "5ff6166eef62de490ae6e45a9f959db81ba4dfa5bf82f69a407656f5d7fc1ee5"
+}

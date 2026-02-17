@@ -9,7 +9,7 @@ pub async fn get_by_slug(pool: &PgPool, slug: &str) -> Result<Option<DbUnit>, Ap
     let row = sqlx::query_as!(
         DbUnit,
         r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
-                  u.tech_base::text AS tech_base, u.rules_level::text AS rules_level,
+                  u.tech_base::text AS "tech_base!", u.rules_level::text AS "rules_level!",
                   u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
                   u.reintro_year, u.source_book, u.description, NULL::bigint AS total_count
            FROM units u WHERE u.slug = $1"#,
@@ -27,7 +27,7 @@ pub async fn get_by_ids(pool: &PgPool, slugs: &[String]) -> Result<Vec<DbUnit>, 
     let rows = sqlx::query_as!(
         DbUnit,
         r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
-                  u.tech_base::text AS tech_base, u.rules_level::text AS rules_level,
+                  u.tech_base::text AS "tech_base!", u.rules_level::text AS "rules_level!",
                   u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
                   u.reintro_year, u.source_book, u.description, NULL::bigint AS total_count
            FROM units u WHERE u.slug = ANY($1)"#,
@@ -126,7 +126,7 @@ pub async fn get_chassis_by_slug(
 ) -> Result<Option<DbUnitChassis>, AppError> {
     let row = sqlx::query_as!(
         DbUnitChassis,
-        r#"SELECT id, slug, name, unit_type, tech_base::text AS tech_base,
+        r#"SELECT id, slug, name, unit_type, tech_base::text AS "tech_base!",
                   tonnage, intro_year, description
            FROM unit_chassis WHERE slug = $1"#,
         slug
@@ -168,8 +168,8 @@ pub async fn list_chassis(
 pub async fn get_locations(pool: &PgPool, unit_id: i32) -> Result<Vec<DbLocation>, AppError> {
     let rows = sqlx::query_as!(
         DbLocation,
-        r#"SELECT id, unit_id, location::text AS location, armor_points,
-                  rear_armor, structure_points
+        r#"SELECT id, unit_id, location::text AS "location!",
+                  armor_points, rear_armor, structure_points
            FROM unit_locations WHERE unit_id = $1 ORDER BY id"#,
         unit_id
     )

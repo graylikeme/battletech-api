@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, slug, name, short_name, faction_type, is_clan,\n                  founding_year, dissolution_year, description\n           FROM factions WHERE slug = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "short_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "faction_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_clan",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "founding_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "dissolution_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "description",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "02734170ec4369ad633594d6b04c687d8c7d1b7dd37e712246b59428b941f311"
+}

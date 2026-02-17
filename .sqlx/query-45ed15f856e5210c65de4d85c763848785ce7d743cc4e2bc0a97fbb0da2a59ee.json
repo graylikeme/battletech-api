@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,\n                  u.tech_base::text AS \"tech_base!\", u.rules_level::text AS \"rules_level!\",\n                  u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,\n                  u.reintro_year, u.source_book, u.description, NULL::bigint AS total_count\n           FROM units u WHERE u.slug = ANY($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "chassis_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "variant",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "full_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "tech_base!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "rules_level!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "tonnage",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 8,
+        "name": "bv",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "cost",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "intro_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "extinction_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "reintro_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 13,
+        "name": "source_book",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 14,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 15,
+        "name": "total_count",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "45ed15f856e5210c65de4d85c763848785ce7d743cc4e2bc0a97fbb0da2a59ee"
+}

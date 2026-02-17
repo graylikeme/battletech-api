@@ -18,7 +18,7 @@ pub async fn get_latest(pool: &PgPool) -> Result<Option<DbMetadata>, AppError> {
 pub async fn list_rulesets(pool: &PgPool) -> Result<Vec<DbRuleset>, AppError> {
     let rows = sqlx::query_as!(
         DbRuleset,
-        r#"SELECT id, slug, name, level::text AS level, description, source_book
+        r#"SELECT id, slug, name, level::text AS "level!", description, source_book
            FROM rulesets
            ORDER BY id"#
     )

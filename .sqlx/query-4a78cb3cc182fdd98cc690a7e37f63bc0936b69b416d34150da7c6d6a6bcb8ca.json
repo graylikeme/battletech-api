@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT e.id, e.slug, e.name, e.start_year, e.end_year, e.description\n               FROM eras e\n               JOIN faction_eras fe ON fe.era_id = e.id\n               WHERE fe.faction_id = $1\n               ORDER BY e.start_year",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "slug",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "start_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "end_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "description",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "4a78cb3cc182fdd98cc690a7e37f63bc0936b69b416d34150da7c6d6a6bcb8ca"
+}

@@ -5,8 +5,10 @@ use crate::{db::models::DbEquipment, error::AppError};
 pub async fn get_by_slug(pool: &PgPool, slug: &str) -> Result<Option<DbEquipment>, AppError> {
     let row = sqlx::query_as!(
         DbEquipment,
-        r#"SELECT id, slug, name, category::text AS category, tech_base::text AS tech_base,
-                  rules_level::text AS rules_level, tonnage, crits, damage, heat,
+        r#"SELECT id, slug, name,
+                  category::text AS "category!", tech_base::text AS "tech_base!",
+                  rules_level::text AS "rules_level!",
+                  tonnage, crits, damage, heat,
                   range_min, range_short, range_medium, range_long, bv, intro_year,
                   source_book, description, NULL::bigint AS total_count
            FROM equipment WHERE slug = $1"#,
