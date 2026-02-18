@@ -35,6 +35,7 @@ fi
 echo "==> Truncating tables..."
 psql "$DB_URL" -q -c "
   TRUNCATE
+    unit_mech_data,
     unit_quirks,
     unit_loadout,
     unit_locations,
@@ -73,13 +74,14 @@ psql "$DB_URL" -q -o /dev/null -c "
 
 echo "==> Done. Verifying row counts..."
 psql "$DB_URL" -t -c "
-  SELECT 'unit_chassis:  ' || COUNT(*) FROM unit_chassis
-  UNION ALL SELECT 'units:         ' || COUNT(*) FROM units
-  UNION ALL SELECT 'equipment:     ' || COUNT(*) FROM equipment
-  UNION ALL SELECT 'unit_loadout:  ' || COUNT(*) FROM unit_loadout
-  UNION ALL SELECT 'unit_locations:' || COUNT(*) FROM unit_locations
-  UNION ALL SELECT 'quirks:        ' || COUNT(*) FROM quirks
-  UNION ALL SELECT 'unit_quirks:   ' || COUNT(*) FROM unit_quirks
-  UNION ALL SELECT 'eras:          ' || COUNT(*) FROM eras
-  UNION ALL SELECT 'factions:      ' || COUNT(*) FROM factions;
+  SELECT 'unit_chassis:   ' || COUNT(*) FROM unit_chassis
+  UNION ALL SELECT 'units:          ' || COUNT(*) FROM units
+  UNION ALL SELECT 'unit_mech_data: ' || COUNT(*) FROM unit_mech_data
+  UNION ALL SELECT 'equipment:      ' || COUNT(*) FROM equipment
+  UNION ALL SELECT 'unit_loadout:   ' || COUNT(*) FROM unit_loadout
+  UNION ALL SELECT 'unit_locations: ' || COUNT(*) FROM unit_locations
+  UNION ALL SELECT 'quirks:         ' || COUNT(*) FROM quirks
+  UNION ALL SELECT 'unit_quirks:    ' || COUNT(*) FROM unit_quirks
+  UNION ALL SELECT 'eras:           ' || COUNT(*) FROM eras
+  UNION ALL SELECT 'factions:       ' || COUNT(*) FROM factions;
 "
