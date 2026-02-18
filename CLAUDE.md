@@ -42,7 +42,7 @@ cd infra && terraform apply     # provision infrastructure
 
 ## Environment
 
-Copy `.env.example` to `.env`. Required vars: `DATABASE_URL`, `PORT` (default 8080), `ALLOWED_ORIGINS`, `EXPECTED_SCHEMA_VERSION`.
+Copy `.env.example` to `.env`. Required vars: `DATABASE_URL`, `PORT` (default 8080), `ALLOWED_ORIGINS`, `EXPECTED_SCHEMA_VERSION`. Optional: `PUBLIC_BASE_URL` (used in `/llms.txt`; defaults to `http://localhost:{PORT}`).
 
 Rust toolchain is pinned to **1.89.0** via `rust-toolchain.toml` (required by async-graphql 7 / edition2024).
 
@@ -80,7 +80,11 @@ HTTP POST /graphql
 
 **sqlx offline mode:** The `.sqlx/` directory contains pre-generated query metadata. All `query_as!` macros in `crates/api` use `"col!"` non-null overrides for PostgreSQL enum columns cast to text (e.g. `u.tech_base::text AS "tech_base!"`). After any schema or query change, run `cargo sqlx prepare --workspace` with a live DB, then commit the updated `.sqlx/` files. The `SQLX_OFFLINE=true` env var (set in Docker builds) disables live-DB checks.
 
-**Router state:** Three sub-routers each carry a different state type (`AppSchema`, `AppState`, `PrometheusHandle`) merged into a single `Router` — this is intentional to satisfy axum's type system.
+**Static text endpoints:** `GET /schema.graphql` and `GET /llms.txt` serve precomputed strings (SDL and LLM-optimized API reference) generated once at startup. Both return `Content-Type: text/plain` with `Cache-Control: public, max-age=3600`. The handler is a shared `static_text_handler` in `main.rs` that takes a `State<String>`.
+
+**Router state:** Five sub-routers each carry a different state type (`AppSchema`, `String` for SDL, `String` for llms.txt, `AppState`, `PrometheusHandle`) merged into a single `Router` — this is intentional to satisfy axum's type system.
+
+**GraphQL descriptions:** All types, fields, and query parameters have descriptions exposed via introspection. For `#[derive(SimpleObject)]` types, use `///` doc comments on the struct and its fields. For `#[Object]` types, place the type-level `///` doc comment on the `impl` block (not the struct), and field-level `///` doc comments on each resolver method. For query parameters, use `#[graphql(desc = "...")]` inline on the parameter.
 
 ### `crates/scraper` — One-shot MegaMek data importer
 

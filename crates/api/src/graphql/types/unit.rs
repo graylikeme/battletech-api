@@ -5,33 +5,50 @@ use crate::{db::models::{DbUnit, DbUnitChassis}, error::AppError, state::AppStat
 
 // ── Quirk ──────────────────────────────────────────────────────────────────
 
+/// A quirk affecting a specific unit variant, providing a positive or negative gameplay modifier.
 #[derive(SimpleObject)]
 pub struct QuirkGql {
+    /// Lowercase, hyphen-separated identifier (e.g. "improved-sensors").
     pub slug: String,
+    /// Human-readable quirk name.
     pub name: String,
+    /// True if this quirk is beneficial; false if it is a drawback.
     pub is_positive: bool,
+    /// Explanation of the quirk's gameplay effect, if available.
     pub description: Option<String>,
 }
 
 // ── Location ───────────────────────────────────────────────────────────────
 
+/// An armor/structure location on a unit (e.g. head, center_torso, left_arm).
 #[derive(SimpleObject)]
 pub struct LocationGql {
+    /// Body location name in snake_case (e.g. "center_torso", "left_arm", "head").
     pub location: String,
+    /// Front armor points at this location. Null if the location has no armor.
     pub armor_points: Option<i32>,
+    /// Rear armor points at this location. Only applicable to torso locations; null otherwise.
     pub rear_armor: Option<i32>,
+    /// Internal structure points at this location. Null if not applicable.
     pub structure_points: Option<i32>,
 }
 
 // ── Loadout Entry ──────────────────────────────────────────────────────────
 
+/// A single equipment item mounted on a unit at a specific location.
 #[derive(SimpleObject)]
 pub struct LoadoutEntryGql {
+    /// Lowercase, hyphen-separated identifier of the equipment item (e.g. "medium-laser").
     pub equipment_slug: String,
+    /// Human-readable name of the equipment item.
     pub equipment_name: String,
+    /// Body location where this equipment is mounted (e.g. "right_arm"). Null if location is unspecified.
     pub location: Option<String>,
+    /// Number of this equipment item mounted at this location.
     pub quantity: i32,
+    /// True if the weapon is rear-facing (fires into the rear arc).
     pub is_rear_facing: bool,
+    /// Additional notes about this loadout entry, if any.
     pub notes: Option<String>,
 }
 
@@ -39,40 +56,50 @@ pub struct LoadoutEntryGql {
 
 pub struct UnitChassisGql(pub DbUnitChassis);
 
+/// A chassis (design family) grouping all variants of a unit. For example, the "Atlas" chassis contains AS7-D, AS7-K, etc.
 #[Object]
 impl UnitChassisGql {
+    /// Unique identifier (same as slug).
     async fn id(&self) -> ID {
         ID(self.0.slug.clone())
     }
 
+    /// Lowercase, hyphen-separated identifier (e.g. "atlas").
     async fn slug(&self) -> &str {
         &self.0.slug
     }
 
+    /// Human-readable chassis name (e.g. "Atlas").
     async fn name(&self) -> &str {
         &self.0.name
     }
 
+    /// Unit type category (e.g. "BattleMech", "Vehicle", "AeroSpaceFighter", "DropShip").
     async fn unit_type(&self) -> &str {
         &self.0.unit_type
     }
 
+    /// Technology base. One of: inner_sphere, clan, mixed, primitive.
     async fn tech_base(&self) -> &str {
         &self.0.tech_base
     }
 
+    /// Weight in metric tons. Ranges from 20 (light mechs) to 500,000+ (jumpships).
     async fn tonnage(&self) -> f64 {
         self.0.tonnage.to_f64().unwrap_or(0.0)
     }
 
+    /// In-universe BattleTech year when this chassis was first produced (e.g. 3025). Not a real-world date.
     async fn intro_year(&self) -> Option<i32> {
         self.0.intro_year
     }
 
+    /// Flavor text or lore description of the chassis.
     async fn description(&self) -> Option<&str> {
         self.0.description.as_deref()
     }
 
+    /// All unit variants belonging to this chassis, ordered by variant designation.
     #[graphql(complexity = 5)]
     async fn variants(&self, ctx: &Context<'_>) -> Result<Vec<UnitGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
@@ -95,64 +122,80 @@ impl UnitChassisGql {
 
 pub struct UnitGql(pub DbUnit);
 
+/// A specific unit variant (e.g. "Atlas AS7-D") with its stats, loadout, armor, quirks, and faction availability.
 #[Object]
 impl UnitGql {
+    /// Unique identifier (same as slug).
     async fn id(&self) -> ID {
         ID(self.0.slug.clone())
     }
 
+    /// Lowercase, hyphen-separated identifier (e.g. "atlas-as7-d").
     async fn slug(&self) -> &str {
         &self.0.slug
     }
 
+    /// Variant designation (e.g. "AS7-D", "Prime", "A").
     async fn variant(&self) -> &str {
         &self.0.variant
     }
 
+    /// Full display name combining chassis and variant (e.g. "Atlas AS7-D").
     async fn full_name(&self) -> &str {
         &self.0.full_name
     }
 
+    /// Technology base. One of: inner_sphere, clan, mixed, primitive.
     async fn tech_base(&self) -> &str {
         &self.0.tech_base
     }
 
+    /// Rules level governing which game modes allow this unit. One of: introductory, standard, advanced, experimental, unofficial.
     async fn rules_level(&self) -> &str {
         &self.0.rules_level
     }
 
+    /// Weight in metric tons. Ranges from 20 (light mechs) to 500,000+ (jumpships).
     async fn tonnage(&self) -> f64 {
         self.0.tonnage.to_f64().unwrap_or(0.0)
     }
 
+    /// Battle Value — composite combat effectiveness score used for game balancing. Null if not computed.
     async fn bv(&self) -> Option<i32> {
         self.0.bv
     }
 
+    /// Construction cost in C-bills (in-universe currency). Null if not available.
     async fn cost(&self) -> Option<i64> {
         self.0.cost
     }
 
+    /// In-universe BattleTech year when this variant was first produced (e.g. 3025). Not a real-world date.
     async fn intro_year(&self) -> Option<i32> {
         self.0.intro_year
     }
 
+    /// In-universe BattleTech year when this variant went extinct. Null if still in production.
     async fn extinction_year(&self) -> Option<i32> {
         self.0.extinction_year
     }
 
+    /// In-universe BattleTech year when this variant was reintroduced after extinction. Null if never reintroduced.
     async fn reintro_year(&self) -> Option<i32> {
         self.0.reintro_year
     }
 
+    /// Source book or technical readout where this unit is published.
     async fn source_book(&self) -> Option<&str> {
         self.0.source_book.as_deref()
     }
 
+    /// Flavor text or lore description of the unit variant.
     async fn description(&self) -> Option<&str> {
         self.0.description.as_deref()
     }
 
+    /// Parent chassis this variant belongs to.
     async fn chassis(&self, ctx: &Context<'_>) -> Result<Option<UnitChassisGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let row = sqlx::query_as!(
@@ -167,6 +210,7 @@ impl UnitGql {
         Ok(row.map(UnitChassisGql))
     }
 
+    /// Armor and internal structure values for each body location.
     #[graphql(complexity = 5)]
     async fn locations(&self, ctx: &Context<'_>) -> Result<Vec<LocationGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
@@ -182,6 +226,7 @@ impl UnitGql {
             .collect())
     }
 
+    /// All equipment items mounted on this unit, grouped by location.
     #[graphql(complexity = 10)]
     async fn loadout(&self, ctx: &Context<'_>) -> Result<Vec<LoadoutEntryGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
@@ -199,6 +244,7 @@ impl UnitGql {
             .collect())
     }
 
+    /// Positive and negative quirks unique to this unit variant.
     #[graphql(complexity = 3)]
     async fn quirks(&self, ctx: &Context<'_>) -> Result<Vec<QuirkGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
@@ -214,6 +260,7 @@ impl UnitGql {
             .collect())
     }
 
+    /// Faction and era availability records for this unit.
     #[graphql(complexity = 5)]
     async fn availability(&self, ctx: &Context<'_>) -> Result<Vec<AvailabilityGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
@@ -244,23 +291,30 @@ impl UnitGql {
             .collect())
     }
 
-    /// Stub — populated in Milestone B
+    /// Reserved for future mech-specific data (movement, engine type, etc.).
     async fn mech_data(&self) -> Option<bool> {
         None
     }
 
-    /// Stub — populated in Milestone B
+    /// Reserved for future vehicle-specific data (motive type, turret, etc.).
     async fn vehicle_data(&self) -> Option<bool> {
         None
     }
 }
 
+/// A record of a unit's availability to a specific faction during a specific era.
 #[derive(SimpleObject)]
 pub struct AvailabilityGql {
+    /// Lowercase, hyphen-separated faction identifier (e.g. "clan-wolf").
     pub faction_slug: String,
+    /// Human-readable faction name.
     pub faction_name: String,
+    /// Lowercase, hyphen-separated era identifier (e.g. "clan-invasion").
     pub era_slug: String,
+    /// Human-readable era name.
     pub era_name: String,
+    /// MegaMek availability rating code (e.g. "A", "B", "F"). Null if unrated.
     pub availability_code: Option<String>,
+    /// Additional notes about this availability entry.
     pub notes: Option<String>,
 }

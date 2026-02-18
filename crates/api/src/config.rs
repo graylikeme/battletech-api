@@ -10,6 +10,8 @@ pub struct Config {
     pub allowed_origins: String,
     #[serde(default = "default_schema_version")]
     pub expected_schema_version: i32,
+    #[serde(default)]
+    pub public_base_url: Option<String>,
 }
 
 fn default_port() -> u16 {

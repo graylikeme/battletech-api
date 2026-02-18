@@ -72,6 +72,8 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
 | `GET /health` | Liveness check — always 200 |
 | `GET /ready` | Readiness check — verifies DB connectivity and schema version |
 | `GET /metrics` | Prometheus metrics |
+| `GET /schema.graphql` | Full GraphQL schema in SDL format |
+| `GET /llms.txt` | LLM-optimized API reference document |
 
 ## GraphQL API
 
@@ -139,7 +141,7 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
 
 ### Limits
 
-- Query depth: 12
+- Query depth: 20
 - Query complexity: 500
 - `unitsByIds`: max 24 slugs per call
 - Pagination: max 100 per page
@@ -167,6 +169,7 @@ The image is a statically-linked musl binary on Alpine (~10 MB).
 | `ALLOWED_ORIGINS` | — | Comma-separated CORS origins; use `*` to allow all |
 | `EXPECTED_SCHEMA_VERSION` | `1` | Schema version checked by `/ready` |
 | `RUST_LOG` | `info` | Log filter (e.g. `debug`, `warn`, `api=debug`) |
+| `PUBLIC_BASE_URL` | `http://localhost:{PORT}` | Base URL used in `/llms.txt` and `/schema.graphql` references |
 
 ## Deployment (timeweb.cloud)
 

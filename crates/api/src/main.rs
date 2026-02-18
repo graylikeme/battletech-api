@@ -3,6 +3,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{
+    extract::State,
+    http::{header, HeaderValue},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
@@ -57,6 +60,14 @@ async fn main() -> anyhow::Result<()> {
     // ── GraphQL schema ────────────────────────────────────────────────────────
     let gql_schema = graphql::schema::build(state.clone());
 
+    // ── Precompute static responses ───────────────────────────────────────────
+    let sdl = gql_schema.sdl();
+    let base_url = cfg
+        .public_base_url
+        .clone()
+        .unwrap_or_else(|| format!("http://localhost:{}", cfg.port));
+    let llms_txt_body = handlers::llms_txt::generate_llms_txt(&base_url);
+
     // ── CORS ──────────────────────────────────────────────────────────────────
     let cors = {
         let origins = cfg.allowed_origins_list();
@@ -95,6 +106,14 @@ async fn main() -> anyhow::Result<()> {
         r.with_state(gql_schema)
     };
 
+    let sdl_router = Router::new()
+        .route("/schema.graphql", get(static_text_handler))
+        .with_state(sdl);
+
+    let llms_router = Router::new()
+        .route("/llms.txt", get(static_text_handler))
+        .with_state(llms_txt_body);
+
     let ready_router = Router::new()
         .route("/ready", get(handlers::ready::ready_handler))
         .with_state(state);
@@ -107,6 +126,8 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(handlers::health::health_handler))
         .merge(graphql_router)
+        .merge(sdl_router)
+        .merge(llms_router)
         .merge(ready_router)
         .merge(metrics_router)
         .layer(GovernorLayer::new(governor_conf))
@@ -124,6 +145,17 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
 
     Ok(())
+}
+
+async fn static_text_handler(State(body): State<String>) -> Response {
+    (
+        [
+            (header::CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=utf-8")),
+            (header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=3600")),
+        ],
+        body,
+    )
+        .into_response()
 }
 
 #[cfg(debug_assertions)]

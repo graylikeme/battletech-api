@@ -16,11 +16,17 @@ pub fn decode_cursor(cursor: &str) -> Option<(String, i32)> {
     Some((sort_val.to_owned(), id))
 }
 
+/// Pagination metadata for cursor-based (keyset) pagination.
 #[derive(SimpleObject)]
 pub struct PageInfo {
+    /// True if there are more items after the last edge in this page.
     pub has_next_page: bool,
+    /// True if there are items before the first edge in this page (i.e. a cursor was provided).
     pub has_previous_page: bool,
+    /// Opaque cursor pointing to the first edge in this page. Null if the page is empty.
     pub start_cursor: Option<String>,
+    /// Opaque cursor pointing to the last edge in this page. Pass this as the "after" parameter to fetch the next page. Null if the page is empty.
     pub end_cursor: Option<String>,
+    /// Total number of items matching the query filters, across all pages.
     pub total_count: i64,
 }
