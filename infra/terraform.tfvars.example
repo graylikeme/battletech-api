@@ -7,14 +7,13 @@ region       = "ru-1"
 project_name = "battletech"
 
 # Kubernetes
-k8s_version      = "v1.30"
+k8s_version      = "v1.30.14+k0s.0"
 k8s_master_cpu   = 2
 k8s_worker_cpu   = 2
 k8s_worker_count = 1
 
-# Database
-db_preset_cpu  = 1
-db_preset_disk = 10240  # 10 GB
+# Database (preset list: https://api.timeweb.cloud/api/v1/presets/dbs)
+db_preset_id   = 357    # 1 CPU / 1 GB RAM / 8 GB disk (ru-1)
 db_name        = "battletech"
 db_user        = "battletech"
 db_password    = "change-me-to-a-strong-password"

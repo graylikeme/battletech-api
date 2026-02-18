@@ -25,7 +25,7 @@ variable "project_name" {
 variable "k8s_version" {
   description = "Kubernetes version (check available versions in TWC console)"
   type        = string
-  default     = "v1.30"
+  default     = "v1.30.14+k0s.0"
 }
 
 variable "k8s_master_cpu" {
@@ -48,16 +48,10 @@ variable "k8s_worker_count" {
 
 # --- Database ---
 
-variable "db_preset_cpu" {
-  description = "CPU count for the database preset"
+variable "db_preset_id" {
+  description = "Database preset ID (see https://api.timeweb.cloud/api/v1/presets/dbs). 357 = 1 CPU / 1 GB RAM / 8 GB disk in ru-1"
   type        = number
-  default     = 1
-}
-
-variable "db_preset_disk" {
-  description = "Disk size in MB for the database preset (e.g. 10240 = 10 GB)"
-  type        = number
-  default     = 10240
+  default     = 357
 }
 
 variable "db_name" {
