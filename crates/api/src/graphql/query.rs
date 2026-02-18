@@ -139,6 +139,10 @@ impl QueryRoot {
         #[graphql(desc = "Maximum tonnage filter (inclusive). Weight in metric tons.")] tonnage_max: Option<f64>,
         #[graphql(desc = "Filter to units available to this faction. Lowercase, hyphen-separated slug (e.g. \"clan-wolf\").")] faction_slug: Option<String>,
         #[graphql(desc = "Filter to units available in this era. Lowercase, hyphen-separated slug (e.g. \"clan-invasion\").")] era_slug: Option<String>,
+        #[graphql(desc = "Filter to OmniMechs only (true) or non-OmniMechs (false).")] is_omnimech: Option<bool>,
+        #[graphql(desc = "Filter by chassis config. One of: Biped, Quad, Tripod, LAM.")] config: Option<String>,
+        #[graphql(desc = "Filter by engine type (e.g. \"XL Engine\", \"Fusion Engine\").")] engine_type: Option<String>,
+        #[graphql(desc = "Filter to jump-capable mechs (true) or non-jumpers (false).")] has_jump: Option<bool>,
     ) -> Result<UnitConnection, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let first = first.unwrap_or(20).clamp(1, 100) as i64;
@@ -155,6 +159,10 @@ impl QueryRoot {
             tonnage_max,
             faction_slug: faction_slug.as_deref(),
             era_slug: era_slug.as_deref(),
+            is_omnimech,
+            config: config.as_deref(),
+            engine_type: engine_type.as_deref(),
+            has_jump,
         };
 
         let (rows, total_count, has_next) =
@@ -192,7 +200,7 @@ impl QueryRoot {
     async fn chassis(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "Lowercase, hyphen-separated chassis identifier (e.g. \"atlas\").")] slug: String,
+        #[graphql(desc = "Lowercase, hyphen-separated chassis identifier including unit type suffix (e.g. \"atlas-mech\", \"demolisher-vehicle\").")] slug: String,
     ) -> Result<Option<UnitChassisGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let row = units::get_chassis_by_slug(&state.pool, &slug).await?;

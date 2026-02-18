@@ -1,7 +1,7 @@
 use sqlx::PgPool;
 
 use crate::{
-    db::models::{DbLoadoutEntry, DbLocation, DbQuirk, DbUnit, DbUnitChassis},
+    db::models::{DbLoadoutEntry, DbLocation, DbMechData, DbQuirk, DbUnit, DbUnitChassis},
     error::AppError,
 };
 
@@ -46,6 +46,10 @@ pub struct UnitFilter<'a> {
     pub tonnage_max: Option<f64>,
     pub faction_slug: Option<&'a str>,
     pub era_slug: Option<&'a str>,
+    pub is_omnimech: Option<bool>,
+    pub config: Option<&'a str>,
+    pub engine_type: Option<&'a str>,
+    pub has_jump: Option<bool>,
 }
 
 pub async fn search(
@@ -54,14 +58,25 @@ pub async fn search(
     first: i64,
     after_id: Option<i32>,
 ) -> Result<(Vec<DbUnit>, i64, bool), AppError> {
+    let has_mech_filter = filter.is_omnimech.is_some()
+        || filter.config.is_some()
+        || filter.engine_type.is_some()
+        || filter.has_jump.is_some();
+
     let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
         r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
                   u.tech_base::text AS tech_base, u.rules_level::text AS rules_level,
                   u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
                   u.reintro_year, u.source_book, u.description,
                   COUNT(*) OVER() AS total_count
-           FROM units u WHERE TRUE"#,
+           FROM units u"#,
     );
+
+    if has_mech_filter {
+        builder.push(" JOIN unit_mech_data md ON md.unit_id = u.id");
+    }
+
+    builder.push(" WHERE TRUE");
 
     if let Some(name) = filter.name_search {
         builder.push(" AND u.full_name ILIKE '%' || ");
@@ -99,6 +114,25 @@ pub async fn search(
             WHERE ua.unit_id = u.id AND e.slug = "#);
         builder.push_bind(era);
         builder.push(")");
+    }
+    if let Some(omni) = filter.is_omnimech {
+        builder.push(" AND md.is_omnimech = ");
+        builder.push_bind(omni);
+    }
+    if let Some(cfg) = filter.config {
+        builder.push(" AND md.config = ");
+        builder.push_bind(cfg);
+    }
+    if let Some(et) = filter.engine_type {
+        builder.push(" AND md.engine_type = ");
+        builder.push_bind(et);
+    }
+    if let Some(has_jump) = filter.has_jump {
+        if has_jump {
+            builder.push(" AND md.jump_mp > 0");
+        } else {
+            builder.push(" AND (md.jump_mp IS NULL OR md.jump_mp = 0)");
+        }
     }
     if let Some(aid) = after_id {
         builder.push(" AND u.id > ");
@@ -190,6 +224,23 @@ pub async fn get_loadout(pool: &PgPool, unit_id: i32) -> Result<Vec<DbLoadoutEnt
            WHERE ul.unit_id = $1
            ORDER BY ul.id"#,
         unit_id
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+pub async fn get_mech_data_batch(
+    pool: &PgPool,
+    unit_ids: &[i32],
+) -> Result<Vec<DbMechData>, AppError> {
+    let rows = sqlx::query_as!(
+        DbMechData,
+        r#"SELECT unit_id, config, is_omnimech, engine_rating, engine_type,
+                  walk_mp, jump_mp, heat_sink_count, heat_sink_type,
+                  structure_type, armor_type, gyro_type, cockpit_type, myomer_type
+           FROM unit_mech_data WHERE unit_id = ANY($1)"#,
+        unit_ids
     )
     .fetch_all(pool)
     .await?;

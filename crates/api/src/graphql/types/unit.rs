@@ -1,7 +1,12 @@
-use async_graphql::{Context, Object, SimpleObject, ID};
+use async_graphql::{dataloader::DataLoader, Context, Object, SimpleObject, ID};
 use rust_decimal::prelude::ToPrimitive;
 
-use crate::{db::models::{DbUnit, DbUnitChassis}, error::AppError, state::AppState};
+use crate::{
+    db::models::{DbMechData, DbUnit, DbUnitChassis},
+    error::AppError,
+    graphql::loaders::MechDataLoader,
+    state::AppState,
+};
 
 // ── Quirk ──────────────────────────────────────────────────────────────────
 
@@ -115,6 +120,84 @@ impl UnitChassisGql {
         .fetch_all(&state.pool)
         .await?;
         Ok(rows.into_iter().map(UnitGql).collect())
+    }
+}
+
+// ── Mech Data ─────────────────────────────────────────────────────────────
+
+pub struct MechDataGql(DbMechData);
+
+/// Mech-specific technical data: engine, movement, heat management, armor/structure type, and chassis configuration.
+#[Object]
+impl MechDataGql {
+    /// Chassis layout: "Biped", "Quad", "Tripod", or "LAM".
+    async fn config(&self) -> &str {
+        &self.0.config
+    }
+
+    /// True if this mech is an OmniMech with configurable pod space.
+    async fn is_omnimech(&self) -> bool {
+        self.0.is_omnimech
+    }
+
+    /// Engine power rating (e.g. 300 for a 100-ton mech with walk 3).
+    async fn engine_rating(&self) -> Option<i32> {
+        self.0.engine_rating
+    }
+
+    /// Engine type name (e.g. "Fusion Engine", "XL Engine", "Light Engine").
+    async fn engine_type(&self) -> Option<&str> {
+        self.0.engine_type.as_deref()
+    }
+
+    /// Walking movement points per turn.
+    async fn walk_mp(&self) -> Option<i32> {
+        self.0.walk_mp
+    }
+
+    /// Running movement points per turn. Computed as ceil(walkMp * 1.5).
+    async fn run_mp(&self) -> Option<i32> {
+        self.0.walk_mp.map(|w| ((w as f64) * 1.5).ceil() as i32)
+    }
+
+    /// Jump movement points per turn. 0 means no jump capability.
+    async fn jump_mp(&self) -> Option<i32> {
+        self.0.jump_mp
+    }
+
+    /// Total number of heat sinks installed.
+    async fn heat_sink_count(&self) -> Option<i32> {
+        self.0.heat_sink_count
+    }
+
+    /// Heat sink technology: "Single", "Double", or "Clan Double Heat Sink".
+    async fn heat_sink_type(&self) -> Option<&str> {
+        self.0.heat_sink_type.as_deref()
+    }
+
+    /// Internal structure technology (e.g. "Standard", "Endo Steel").
+    async fn structure_type(&self) -> Option<&str> {
+        self.0.structure_type.as_deref()
+    }
+
+    /// Armor technology (e.g. "Standard Armor", "Ferro-Fibrous").
+    async fn armor_type(&self) -> Option<&str> {
+        self.0.armor_type.as_deref()
+    }
+
+    /// Gyroscope type (e.g. "Standard Gyro", "XL Gyro", "Compact Gyro").
+    async fn gyro_type(&self) -> Option<&str> {
+        self.0.gyro_type.as_deref()
+    }
+
+    /// Cockpit type (e.g. "Standard Cockpit", "Small Cockpit").
+    async fn cockpit_type(&self) -> Option<&str> {
+        self.0.cockpit_type.as_deref()
+    }
+
+    /// Myomer type (e.g. "Standard", "Triple-Strength Myomer").
+    async fn myomer_type(&self) -> Option<&str> {
+        self.0.myomer_type.as_deref()
     }
 }
 
@@ -291,9 +374,15 @@ impl UnitGql {
             .collect())
     }
 
-    /// Reserved for future mech-specific data (movement, engine type, etc.).
-    async fn mech_data(&self) -> Option<bool> {
-        None
+    /// Mech-specific technical data. Null for non-mech units (vehicles, aerospace, etc.).
+    #[graphql(complexity = 5)]
+    async fn mech_data(&self, ctx: &Context<'_>) -> Result<Option<MechDataGql>, AppError> {
+        let loader = ctx.data::<DataLoader<MechDataLoader>>().unwrap();
+        let data = loader
+            .load_one(self.0.id)
+            .await
+            .map_err(|e| AppError::Internal(e.message))?;
+        Ok(data.map(MechDataGql))
     }
 
     /// Reserved for future vehicle-specific data (motive type, turret, etc.).

@@ -142,3 +142,21 @@ pub struct DbQuirk {
     pub is_positive: bool,
     pub description: Option<String>,
 }
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbMechData {
+    pub unit_id: i32,
+    pub config: String,
+    pub is_omnimech: bool,
+    pub engine_rating: Option<i32>,
+    pub engine_type: Option<String>,
+    pub walk_mp: Option<i32>,
+    pub jump_mp: Option<i32>,
+    pub heat_sink_count: Option<i32>,
+    pub heat_sink_type: Option<String>,
+    pub structure_type: Option<String>,
+    pub armor_type: Option<String>,
+    pub gyro_type: Option<String>,
+    pub cockpit_type: Option<String>,
+    pub myomer_type: Option<String>,
+}
