@@ -53,7 +53,7 @@ cargo run -p scraper --release -- \
   --version "0.50.11"
 ```
 
-This seeds reference data (eras, factions) and imports ~6,500 units with loadout, armor locations, and quirks.
+This seeds reference data (eras, factions) and imports ~6,500 units with loadout, armor locations, quirks, and mech-specific data (engine, movement, heat sinks, armor/structure types).
 
 **5. Run the API**
 
@@ -85,9 +85,10 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
   units(first: 20, nameSearch: "Atlas", techBase: "inner_sphere") {
     edges {
       node {
-        id
+        slug
         fullName
         tonnage
+        bv
         introYear
         rulesLevel
       }
@@ -100,12 +101,25 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
   }
 }
 
-# Single unit with loadout
+# Single unit with loadout and mech data
 {
   unit(slug: "atlas-as7-d") {
     fullName
     tonnage
     techBase
+    mechData {
+      config
+      isOmnimech
+      engineRating
+      engineType
+      walkMp
+      runMp
+      jumpMp
+      heatSinkCount
+      heatSinkType
+      armorType
+      structureType
+    }
     loadout {
       equipmentName
       location
@@ -223,8 +237,9 @@ MegaMek 0.50.11 produces approximately:
 
 | Table | Rows |
 |-------|------|
-| `unit_chassis` | 1,638 |
+| `unit_chassis` | 1,669 |
 | `units` | 6,535 |
+| `unit_mech_data` | 4,225 |
 | `equipment` | 2,875 |
 | `unit_loadout` | 70,549 |
 | `unit_locations` | 33,156 |

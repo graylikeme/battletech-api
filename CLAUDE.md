@@ -69,12 +69,14 @@ HTTP POST /graphql
 
 **Key constraints baked into the schema:**
 - Depth limit: 20, Complexity limit: 500 (`graphql/schema.rs`). Depth is set to 20 (not lower) because GraphiQL's introspection query needs ~15 levels.
-- Expensive fields annotated with `#[graphql(complexity = N)]`: `locations` (5), `loadout` (10), `quirks` (3), `availability` (5), `variants` (5)
+- Expensive fields annotated with `#[graphql(complexity = N)]`: `locations` (5), `loadout` (10), `quirks` (3), `availability` (5), `variants` (5), `mechData` (5)
 - `unitsByIds` accepts at most 24 slugs
 
 **GraphQL types live in two layers:**
 - `db/models.rs` — `Db*` structs derived from `FromRow`, used only inside the db layer
 - `graphql/types/*.rs` — `*Gql` newtypes wrapping `Db*`, with `#[Object]` impls that expose the GraphQL API
+
+**DataLoader** (`graphql/loaders.rs`): `MechDataLoader` uses async-graphql's `dataloader` feature to batch-load `unit_mech_data` rows, preventing N+1 queries when `mechData` is requested in list queries.
 
 **Pagination** (`graphql/pagination.rs`): keyset cursors encoded as `base64("sort_val|id:N")`. The `search` functions in `db/units.rs` and `db/equipment.rs` use `QueryBuilder` for dynamic WHERE clauses and `COUNT(*) OVER()` for total count in a single query.
 
@@ -91,12 +93,12 @@ HTTP POST /graphql
 Reads a MegaMek `unit_files.zip` (found inside the release tarball at `data/mekfiles/unit_files.zip`) and upserts all units into Postgres.
 
 **MegaMek file formats:**
-- `.mtf` — custom key:value text format for 'Mek units (in `meks/` subdirectory)
+- `.mtf` — custom key:value text format for Mech units (in `meks/` subdirectory)
 - `.blk` — XML-like tag format for all other unit types (vehicles, fighters, dropships, etc.)
 
 **Parse → DB pipeline:**
-1. `parse.rs` — `parse_mtf()` / `parse_blk()` return `Option<ParsedUnit>`
-2. `db.rs` — runtime `sqlx::query` (no `!` macro) upserts: chassis → unit → locations → loadout → quirks. Uses runtime queries (not `query!`) to avoid compile-time issues with custom PG enum types.
+1. `parse.rs` — `parse_mtf()` / `parse_blk()` return `Option<ParsedUnit>`. MTF parsing also extracts mech-specific data (engine, movement, heat sinks, armor/structure types, gyro, cockpit, myomer) into `ParsedMechData`.
+2. `db.rs` — runtime `sqlx::query` (no `!` macro) upserts: chassis → unit → locations → loadout → quirks → mech_data. Uses runtime queries (not `query!`) to avoid compile-time issues with custom PG enum types.
 3. `seed.rs` — seeds the 10 standard eras, 33 factions, and `dataset_metadata` row
 
 The scraper maintains an in-process `HashMap<slug, equipment_id>` cache to avoid re-inserting the same equipment for every unit that carries it.
@@ -107,4 +109,4 @@ Schema is in `migrations/`. PostgreSQL enums defined: `tech_base_enum`, `rules_l
 
 `tonnage` columns are `NUMERIC(10,1)` (widened in migration 2 from `NUMERIC(6,1)` to accommodate dropships/jumpships up to ~500,000 tons).
 
-Unit slugs are lowercased, non-alphanumeric characters replaced with hyphens and deduplicated (e.g. `"Atlas AS7-D"` → `"atlas-as7-d"`). Chassis slugs are derived from chassis name only; unit slugs from `"chassis model"`.
+Unit slugs are lowercased, non-alphanumeric characters replaced with hyphens and deduplicated (e.g. `"Atlas AS7-D"` → `"atlas-as7-d"`). Chassis slugs include the unit type suffix to avoid collisions between different unit types sharing a name (e.g. `"atlas-mech"`, `"demolisher-vehicle"`). Unit slugs are derived from `"chassis model"`.
