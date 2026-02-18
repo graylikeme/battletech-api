@@ -16,7 +16,7 @@ GET {base_url}/schema.graphql
 
 ## Key Concepts
 
-- **Slugs**: lowercase, hyphen-separated identifiers. Examples: "atlas-as7-d", "clan-wolf", "medium-laser"
+- **Slugs**: lowercase, hyphen-separated identifiers. Examples: "atlas-as7-d", "clan-wolf", "medium-laser". Chassis slugs include the unit type suffix: "atlas-mech", "demolisher-vehicle"
 - **Years**: in-universe BattleTech timeline years (e.g. 3025, 3055), not real-world dates
 - **Tech base** values (snake_case): inner_sphere, clan, mixed, primitive
 - **Rules level** values (snake_case): introductory, standard, advanced, experimental, unofficial
@@ -48,7 +48,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 ## Limits
 
 - Query depth limit: 20
-- Query complexity limit: 500 (expensive fields: loadout=10, locations=5, availability=5, variants=5, quirks=3, eras=5)
+- Query complexity limit: 500 (expensive fields: loadout=10, locations=5, availability=5, variants=5, mechData=5, quirks=3, eras=5)
 - `unitsByIds`: max 24 slugs per call
 - Pagination: max 100 items per page
 - Rate limit: 100 request burst / ~120 requests/min sustained (per IP)
@@ -79,7 +79,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 }}
 ```
 
-### Get a single unit with full loadout and armor
+### Get a single unit with full loadout, armor, and mech data
 ```graphql
 {{
   unit(slug: "atlas-as7-d") {{
@@ -90,6 +90,22 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
     bv
     cost
     introYear
+    mechData {{
+      config
+      isOmnimech
+      engineRating
+      engineType
+      walkMp
+      runMp
+      jumpMp
+      heatSinkCount
+      heatSinkType
+      structureType
+      armorType
+      gyroType
+      cockpitType
+      myomerType
+    }}
     loadout {{
       equipmentName
       location
@@ -127,6 +143,31 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
       totalCount
       hasNextPage
       endCursor
+    }}
+  }}
+}}
+```
+
+### Filter OmniMechs with jump capability
+```graphql
+{{
+  units(first: 10, isOmnimech: true, hasJump: true) {{
+    edges {{
+      node {{
+        slug
+        fullName
+        tonnage
+        mechData {{
+          config
+          engineType
+          walkMp
+          runMp
+          jumpMp
+        }}
+      }}
+    }}
+    pageInfo {{
+      totalCount
     }}
   }}
 }}
@@ -214,7 +255,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 ### Get chassis with all its variants
 ```graphql
 {{
-  chassis(slug: "atlas") {{
+  chassis(slug: "atlas-mech") {{
     name
     unitType
     techBase
