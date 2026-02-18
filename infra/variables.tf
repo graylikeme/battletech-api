@@ -72,6 +72,19 @@ variable "db_password" {
   sensitive   = true
 }
 
+# --- DNS ---
+
+variable "domain" {
+  description = "Root domain (DNS zone must already exist in TWC)"
+  type        = string
+  default     = "battletech.su"
+}
+
+variable "ingress_ip" {
+  description = "External IP of the K8s worker node used for ingress"
+  type        = string
+}
+
 # --- Application ---
 
 variable "api_image" {

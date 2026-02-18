@@ -33,6 +33,13 @@ output "db_host" {
   value       = twc_database_cluster.main.networks
 }
 
+# --- DNS ---
+
+output "api_dns_record" {
+  description = "DNS A record for api subdomain"
+  value       = "${twc_dns_rr.api.name}.${var.domain} → ${twc_dns_rr.api.value}"
+}
+
 # --- Network ---
 
 output "vpc_id" {

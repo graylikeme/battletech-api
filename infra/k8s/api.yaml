@@ -74,11 +74,16 @@ metadata:
   name: battletech-api
   namespace: battletech
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.battletech.su
+      secretName: api-battletech-su-tls
   rules:
-    - http:
+    - host: api.battletech.su
+      http:
         paths:
           - path: /
             pathType: Prefix
