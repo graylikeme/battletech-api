@@ -19,6 +19,9 @@ DATABASE_URL=postgres://postgres:pass@localhost:5432/battletech \
   --zip /path/to/unit_files.zip \
   --version "0.50.11"
 
+# Seed database from dump (alternative to running the scraper)
+./seed/load.sh            # uses DATABASE_URL from .env
+
 # Migrations
 sqlx migrate run          # apply pending migrations
 sqlx migrate revert       # roll back last migration

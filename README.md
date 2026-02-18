@@ -33,7 +33,17 @@ cargo install sqlx-cli --no-default-features --features postgres
 sqlx migrate run
 ```
 
-**4. Import MegaMek data**
+**4. Seed the database**
+
+**Option A — Use the included seed dump (fastest):**
+
+```bash
+./seed/load.sh
+```
+
+This loads a pre-exported snapshot (MegaMek 0.50.11 — ~6,500 units, ~2,875 equipment) in seconds.
+
+**Option B — Import from MegaMek source files:**
 
 Download a MegaMek release tarball (e.g. `MegaMek-0.50.11.tar.gz`) and extract it. The unit data is at `data/mekfiles/unit_files.zip` inside the extracted directory.
 
