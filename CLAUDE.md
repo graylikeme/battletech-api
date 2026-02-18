@@ -32,6 +32,14 @@ cargo sqlx prepare --workspace
 
 There is no test suite yet.
 
+```bash
+# Terraform (infra/)
+cd infra && terraform init      # download providers
+cd infra && terraform validate  # check syntax
+cd infra && terraform plan      # preview changes
+cd infra && terraform apply     # provision infrastructure
+```
+
 ## Environment
 
 Copy `.env.example` to `.env`. Required vars: `DATABASE_URL`, `PORT` (default 8080), `ALLOWED_ORIGINS`, `EXPECTED_SCHEMA_VERSION`.

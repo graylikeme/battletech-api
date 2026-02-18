@@ -3,3 +3,8 @@
 *.swp
 *.swo
 .claude/settings.local.json
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate*
+infra/terraform.tfvars

@@ -168,6 +168,50 @@ The image is a statically-linked musl binary on Alpine (~10 MB).
 | `EXPECTED_SCHEMA_VERSION` | `1` | Schema version checked by `/ready` |
 | `RUST_LOG` | `info` | Log filter (e.g. `debug`, `warn`, `api=debug`) |
 
+## Deployment (timeweb.cloud)
+
+Infrastructure is managed with Terraform in the `infra/` directory. It provisions a managed Kubernetes cluster and a managed PostgreSQL instance on [timeweb.cloud](https://timeweb.cloud), connected via a private VPC.
+
+**1. Configure variables**
+
+```bash
+cd infra
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars — set twc_token, db_password, and other values
+```
+
+**2. Provision infrastructure**
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+**3. Get kubeconfig and apply K8s manifests**
+
+```bash
+# Save kubeconfig from Terraform output
+terraform output -raw kubeconfig > ~/.kube/battletech.yaml
+export KUBECONFIG=~/.kube/battletech.yaml
+
+# Create namespace and deploy the API
+kubectl apply -f k8s/namespace.yaml
+kubectl create secret generic battletech-api-secrets \
+  --namespace=battletech \
+  --from-literal=DATABASE_URL='postgres://USER:PASS@DB_HOST:5432/battletech'
+kubectl apply -f k8s/api.yaml
+```
+
+**4. Run migrations and seed the database**
+
+Connect to the managed PostgreSQL using the VPC-internal address (from `terraform output db_host`), then:
+
+```bash
+DATABASE_URL='postgres://USER:PASS@DB_HOST:5432/battletech' sqlx migrate run
+DATABASE_URL='postgres://USER:PASS@DB_HOST:5432/battletech' ./seed/load.sh
+```
+
 ## Data
 
 Units, chassis, equipment, locations, loadout, and quirks are imported from MegaMek release files. Reference data (eras, factions) is hardcoded in `crates/scraper/src/seed.rs`. Re-running the scraper is idempotent — all inserts use `ON CONFLICT ... DO UPDATE`.

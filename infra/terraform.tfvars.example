@@ -1,0 +1,23 @@
+# Copy this file to terraform.tfvars and fill in the values.
+# terraform.tfvars is gitignored — never commit secrets.
+
+twc_token = "your-timeweb-cloud-api-token"
+
+region       = "ru-1"
+project_name = "battletech"
+
+# Kubernetes
+k8s_version      = "v1.30"
+k8s_master_cpu   = 2
+k8s_worker_cpu   = 2
+k8s_worker_count = 1
+
+# Database
+db_preset_cpu  = 1
+db_preset_disk = 10240  # 10 GB
+db_name        = "battletech"
+db_user        = "battletech"
+db_password    = "change-me-to-a-strong-password"
+
+# Application
+api_image = "ghcr.io/graylikeme/battletech-api:latest"

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: battletech-api
+  namespace: battletech
+  labels:
+    app: battletech-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: battletech-api
+  template:
+    metadata:
+      labels:
+        app: battletech-api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/graylikeme/battletech-api:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: battletech-api-secrets
+                  key: DATABASE_URL
+            - name: PORT
+              value: "8080"
+            - name: ALLOWED_ORIGINS
+              value: "*"
+            - name: EXPECTED_SCHEMA_VERSION
+              value: "1"
+            - name: RUST_LOG
+              value: "info"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: battletech-api
+  namespace: battletech
+spec:
+  selector:
+    app: battletech-api
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: battletech-api
+  namespace: battletech
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: battletech-api
+                port:
+                  number: 80
