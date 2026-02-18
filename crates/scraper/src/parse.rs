@@ -16,6 +16,25 @@ pub struct ParsedUnit {
     /// Quirk slugs
     pub quirks: Vec<String>,
     pub description: Option<String>,
+    /// Mech-specific structural data (None for non-mech units)
+    pub mech_data: Option<ParsedMechData>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ParsedMechData {
+    pub config: String,
+    pub is_omnimech: bool,
+    pub engine_rating: Option<i32>,
+    pub engine_type: Option<String>,
+    pub walk_mp: Option<i32>,
+    pub jump_mp: Option<i32>,
+    pub heat_sink_count: Option<i32>,
+    pub heat_sink_type: Option<String>,
+    pub structure_type: Option<String>,
+    pub armor_type: Option<String>,
+    pub gyro_type: Option<String>,
+    pub cockpit_type: Option<String>,
+    pub myomer_type: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -36,7 +55,7 @@ pub struct ParsedLoadoutEntry {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnitType {
-    Mek,
+    Mech,
     Vehicle,
     Fighter,
     Other,
@@ -45,7 +64,7 @@ pub enum UnitType {
 impl UnitType {
     pub fn as_str(self) -> &'static str {
         match self {
-            UnitType::Mek => "mek",
+            UnitType::Mech => "mech",
             UnitType::Vehicle => "vehicle",
             UnitType::Fighter => "fighter",
             UnitType::Other => "other",
@@ -121,6 +140,18 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
     let mut chassis = String::new();
     let mut model = String::new();
     let mut config = String::new(); // Biped, Quad, etc.
+    let mut is_omnimech = false;
+    let mut engine_rating: Option<i32> = None;
+    let mut engine_type: Option<String> = None;
+    let mut walk_mp: Option<i32> = None;
+    let mut jump_mp: Option<i32> = None;
+    let mut heat_sink_count: Option<i32> = None;
+    let mut heat_sink_type: Option<String> = None;
+    let mut structure_type: Option<String> = None;
+    let mut armor_type: Option<String> = None;
+    let mut gyro_type: Option<String> = None;
+    let mut cockpit_type: Option<String> = None;
+    let mut myomer_type: Option<String> = None;
     let mut tech_base = TechBase::InnerSphere;
     let mut rules_level = RulesLevel::Standard;
     let mut intro_year: Option<i32> = None;
@@ -191,7 +222,13 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
         match key.as_str() {
             "chassis" => chassis = val.clone(),
             "model" => model = val.clone(),
-            "config" => config = val.clone(),
+            "config" => {
+                // e.g. "Biped", "Biped OmniMech", "Quad OmniMech"
+                let lower = val.to_lowercase();
+                is_omnimech = lower.contains("omnimech");
+                // First word is the config type
+                config = val.split_whitespace().next().unwrap_or(&val).to_string();
+            }
             "techbase" | "tech base" => tech_base = TechBase::from_str(&val),
             "era" => intro_year = val.parse().ok(),
             "source" => source = Some(val.clone()),
@@ -202,6 +239,44 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
                     .unwrap_or(RulesLevel::Standard)
             }
             "mass" => tonnage = val.parse().ok(),
+            "engine" => {
+                // e.g. "300 Fusion Engine", "200 XL Engine"
+                let parts: Vec<&str> = val.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    if let Ok(rating) = parts[0].parse::<i32>() {
+                        engine_rating = Some(rating);
+                        engine_type = Some(parts[1].to_string());
+                    } else {
+                        engine_type = Some(val.clone());
+                    }
+                } else {
+                    engine_type = Some(val.clone());
+                }
+            }
+            "walk mp" => walk_mp = val.parse().ok(),
+            "jump mp" => jump_mp = val.parse().ok(),
+            "heat sinks" => {
+                // e.g. "16 Single", "10 Double", "10 Clan Double Heat Sink"
+                let parts: Vec<&str> = val.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    if let Ok(count) = parts[0].parse::<i32>() {
+                        heat_sink_count = Some(count);
+                        heat_sink_type = Some(parts[1].to_string());
+                    } else {
+                        heat_sink_type = Some(val.clone());
+                    }
+                } else {
+                    // Could be just a number
+                    if let Ok(count) = val.parse::<i32>() {
+                        heat_sink_count = Some(count);
+                    }
+                }
+            }
+            "structure" => structure_type = Some(val.clone()),
+            "armor" => armor_type = Some(val.clone()),
+            "gyro" => gyro_type = Some(val.clone()),
+            "cockpit" => cockpit_type = Some(val.clone()),
+            "myomer" => myomer_type = Some(val.clone()),
             "quirk" => quirks.push(to_slug(&val)),
             "overview" => {
                 description = Some(val.trim_matches('"').to_string());
@@ -212,6 +287,9 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
         // Armor value lines like "LA armor:34"
         if let Some(rest) = key.strip_suffix(" armor") {
             let loc_code = rest.trim().to_uppercase();
+            if loc_code.is_empty() {
+                continue;
+            }
             match loc_code.as_str() {
                 "RTL" => {
                     armor.entry("LT".to_string()).or_default().1 = val.parse().ok();
@@ -262,12 +340,25 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
         return None;
     }
 
-    let unit_type = match config.to_lowercase().as_str() {
-        "biped" | "quad" | "biped omnimech" | "quad omnimech" | "tripod" => UnitType::Mek,
-        _ => UnitType::Mek,
-    };
+    let unit_type = UnitType::Mech;
 
-    let locations = build_mek_locations(&armor);
+    let locations = build_mech_locations(&armor);
+
+    let mech_data = Some(ParsedMechData {
+        config: if config.is_empty() { "Biped".to_string() } else { config },
+        is_omnimech,
+        engine_rating,
+        engine_type,
+        walk_mp,
+        jump_mp,
+        heat_sink_count,
+        heat_sink_type,
+        structure_type,
+        armor_type,
+        gyro_type,
+        cockpit_type,
+        myomer_type,
+    });
 
     Some(ParsedUnit {
         chassis,
@@ -282,6 +373,7 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
         loadout: dedup_loadout(loadout),
         quirks,
         description,
+        mech_data,
     })
 }
 
@@ -362,7 +454,7 @@ fn mtf_location_header(key: &str) -> Option<&'static str> {
     }
 }
 
-fn build_mek_locations(
+fn build_mech_locations(
     armor: &std::collections::HashMap<String, (Option<i32>, Option<i32>)>,
 ) -> Vec<ParsedLocation> {
     let mapping: &[(&str, &str)] = &[
@@ -529,6 +621,7 @@ pub fn parse_blk(content: &str, default_unit_type: UnitType) -> Option<ParsedUni
         loadout: dedup_loadout(loadout),
         quirks: Vec::new(),
         description,
+        mech_data: None, // BLK units are vehicles/aero, not mechs
     })
 }
 

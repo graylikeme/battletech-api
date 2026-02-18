@@ -73,8 +73,15 @@ pub async fn upsert_equipment(
 // ── chassis ───────────────────────────────────────────────────────────────────
 
 /// Upsert a chassis row and return its id.
+///
+/// The chassis slug includes the unit type to prevent collisions between
+/// different unit types sharing a name (e.g. "Vulcan" mech vs "Vulcan" fighter).
 pub async fn upsert_chassis(pool: &PgPool, unit: &ParsedUnit) -> anyhow::Result<i32> {
-    let slug    = crate::parse::to_slug(&unit.chassis);
+    let slug = format!(
+        "{}-{}",
+        crate::parse::to_slug(&unit.chassis),
+        unit.unit_type.as_str()
+    );
     let tonnage = to_decimal(unit.tonnage);
 
     let row = sqlx::query(
@@ -239,6 +246,56 @@ pub async fn replace_loadout(
         .await
         .with_context(|| format!("insert loadout entry {} for unit {unit_id}", entry.equipment))?;
     }
+    Ok(())
+}
+
+// ── mech data ────────────────────────────────────────────────────────────────
+
+/// Upsert mech-specific structural data for a unit.
+pub async fn upsert_mech_data(
+    pool: &PgPool,
+    unit_id: i32,
+    data: &crate::parse::ParsedMechData,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        r#"INSERT INTO unit_mech_data (
+               unit_id, config, is_omnimech, engine_rating, engine_type,
+               walk_mp, jump_mp, heat_sink_count, heat_sink_type,
+               structure_type, armor_type, gyro_type, cockpit_type, myomer_type
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+           ON CONFLICT (unit_id) DO UPDATE SET
+               config          = EXCLUDED.config,
+               is_omnimech     = EXCLUDED.is_omnimech,
+               engine_rating   = EXCLUDED.engine_rating,
+               engine_type     = EXCLUDED.engine_type,
+               walk_mp         = EXCLUDED.walk_mp,
+               jump_mp         = EXCLUDED.jump_mp,
+               heat_sink_count = EXCLUDED.heat_sink_count,
+               heat_sink_type  = EXCLUDED.heat_sink_type,
+               structure_type  = EXCLUDED.structure_type,
+               armor_type      = EXCLUDED.armor_type,
+               gyro_type       = EXCLUDED.gyro_type,
+               cockpit_type    = EXCLUDED.cockpit_type,
+               myomer_type     = EXCLUDED.myomer_type
+        "#,
+    )
+    .bind(unit_id)
+    .bind(&data.config)
+    .bind(data.is_omnimech)
+    .bind(data.engine_rating)
+    .bind(&data.engine_type)
+    .bind(data.walk_mp)
+    .bind(data.jump_mp)
+    .bind(data.heat_sink_count)
+    .bind(&data.heat_sink_type)
+    .bind(&data.structure_type)
+    .bind(&data.armor_type)
+    .bind(&data.gyro_type)
+    .bind(&data.cockpit_type)
+    .bind(&data.myomer_type)
+    .execute(pool)
+    .await
+    .with_context(|| format!("upsert_mech_data for unit {unit_id}"))?;
     Ok(())
 }
 

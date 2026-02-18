@@ -183,6 +183,9 @@ async fn import_unit(
     if !unit.quirks.is_empty() {
         db::replace_quirks(pool, unit_id, &unit.quirks).await?;
     }
+    if let Some(ref mech_data) = unit.mech_data {
+        db::upsert_mech_data(pool, unit_id, mech_data).await?;
+    }
 
     Ok(())
 }
@@ -190,7 +193,7 @@ async fn import_unit(
 // ── zip entry classifier ──────────────────────────────────────────────────────
 
 /// Returns `(is_mtf, default_unit_type)`.
-/// `is_mtf = true`  → parse as MTF (mek).
+/// `is_mtf = true`  → parse as MTF (mech).
 /// `default_type = Some(t)` → parse as BLK with given default type.
 /// Both false/None → skip.
 fn classify(path: &str) -> (bool, Option<UnitType>) {
