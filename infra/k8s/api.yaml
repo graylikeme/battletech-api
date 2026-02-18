@@ -34,6 +34,8 @@ spec:
               value: "1"
             - name: RUST_LOG
               value: "info"
+            - name: PUBLIC_BASE_URL
+              value: "https://api.battletech.su"
           livenessProbe:
             httpGet:
               path: /health
