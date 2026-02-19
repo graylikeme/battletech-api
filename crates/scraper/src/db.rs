@@ -303,15 +303,19 @@ pub async fn upsert_mech_data(
     let heatsink_type_id = if let Some(ref ht) = data.heat_sink_type {
         resolve_alias(pool, "heatsink_type_aliases", "heatsink_type_id", ht).await
     } else { None };
-    let gyro_type_id = if let Some(ref gt) = data.gyro_type {
+    // Default to standard gyro/cockpit/myomer when MegaMek omits the field
+    let gyro_type_id = {
+        let gt = data.gyro_type.as_deref().unwrap_or("Standard Gyro");
         resolve_alias(pool, "gyro_type_aliases", "gyro_type_id", gt).await
-    } else { None };
-    let cockpit_type_id = if let Some(ref ct) = data.cockpit_type {
+    };
+    let cockpit_type_id = {
+        let ct = data.cockpit_type.as_deref().unwrap_or("Standard Cockpit");
         resolve_alias(pool, "cockpit_type_aliases", "cockpit_type_id", ct).await
-    } else { None };
-    let myomer_type_id = if let Some(ref mt) = data.myomer_type {
+    };
+    let myomer_type_id = {
+        let mt = data.myomer_type.as_deref().unwrap_or("Standard");
         resolve_alias(pool, "myomer_type_aliases", "myomer_type_id", mt).await
-    } else { None };
+    };
 
     sqlx::query(
         r#"INSERT INTO unit_mech_data (
