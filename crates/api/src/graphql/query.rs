@@ -143,6 +143,7 @@ impl QueryRoot {
         #[graphql(desc = "Filter by chassis config. One of: Biped, Quad, Tripod, LAM.")] config: Option<String>,
         #[graphql(desc = "Filter by engine type (e.g. \"XL Engine\", \"Fusion Engine\").")] engine_type: Option<String>,
         #[graphql(desc = "Filter to jump-capable mechs (true) or non-jumpers (false).")] has_jump: Option<bool>,
+        #[graphql(desc = "Filter by tactical role (e.g. \"Juggernaut\", \"Sniper\", \"Striker\"). Case-sensitive, from Master Unit List.")] role: Option<String>,
     ) -> Result<UnitConnection, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let first = first.unwrap_or(20).clamp(1, 100) as i64;
@@ -163,6 +164,7 @@ impl QueryRoot {
             config: config.as_deref(),
             engine_type: engine_type.as_deref(),
             has_jump,
+            role: role.as_deref(),
         };
 
         let (rows, total_count, has_next) =
