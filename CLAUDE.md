@@ -7,17 +7,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Build
 cargo build -p api
-cargo build -p scraper
+cargo build -p scraper@0.1.0
 cargo build --workspace
 
 # Run the API server (requires .env or env vars)
 DATABASE_URL=postgres://postgres:pass@localhost:5432/battletech cargo run -p api
 
-# Run the scraper (one-shot data import)
+# Run the scraper — MegaMek import
 DATABASE_URL=postgres://postgres:pass@localhost:5432/battletech \
-  cargo run -p scraper --release -- \
+  cargo run -p scraper@0.1.0 --release -- megamek \
   --zip /path/to/unit_files.zip \
   --version "0.50.11"
+
+# Run the scraper — MUL fetch (downloads data to local files, no DB needed)
+cargo run -p scraper@0.1.0 --release -- mul-fetch \
+  --output-dir ./mul-data --delay-ms 1000
+
+# Run the scraper — MUL import (imports fetched data into DB)
+DATABASE_URL=postgres://postgres:pass@localhost:5432/battletech \
+  cargo run -p scraper@0.1.0 --release -- mul-import \
+  --data-dir ./mul-data
+# Add --skip-availability to import only QuickList data (BV, role, cost)
+# Add --force to re-import availability even if rows exist
+# Add --overrides overrides.json for manual MUL ID→slug mappings
 
 # Seed database from dump (alternative to running the scraper)
 ./seed/load.sh            # uses DATABASE_URL from .env
@@ -88,9 +100,11 @@ HTTP POST /graphql
 
 **GraphQL descriptions:** All types, fields, and query parameters have descriptions exposed via introspection. For `#[derive(SimpleObject)]` types, use `///` doc comments on the struct and its fields. For `#[Object]` types, place the type-level `///` doc comment on the `impl` block (not the struct), and field-level `///` doc comments on each resolver method. For query parameters, use `#[graphql(desc = "...")]` inline on the parameter.
 
-### `crates/scraper` — One-shot MegaMek data importer
+### `crates/scraper` — Data importer (MegaMek + MUL)
 
-Reads a MegaMek `unit_files.zip` (found inside the release tarball at `data/mekfiles/unit_files.zip`) and upserts all units into Postgres.
+Three subcommands: `megamek`, `mul-fetch`, `mul-import`.
+
+**`megamek`** — Reads a MegaMek `unit_files.zip` and upserts all units into Postgres.
 
 **MegaMek file formats:**
 - `.mtf` — custom key:value text format for Mech units (in `meks/` subdirectory)
@@ -102,6 +116,19 @@ Reads a MegaMek `unit_files.zip` (found inside the release tarball at `data/mekf
 3. `seed.rs` — seeds the 10 standard eras, 33 factions, and `dataset_metadata` row
 
 The scraper maintains an in-process `HashMap<slug, equipment_id>` cache to avoid re-inserting the same equipment for every unit that carries it.
+
+**`mul-fetch`** — Downloads QuickList JSON and detail page HTML from the Master Unit List (masterunitlist.info) to local files. No DB connection needed. Resume-safe (skips already-downloaded detail pages). Splits QuickList requests by tonnage ranges to avoid MUL server JSON size limits.
+
+**`mul-import`** — Imports previously-fetched MUL data from local files into Postgres. Matches MUL units to DB units by slug (exact → normalized → case-insensitive full_name). Updates BV, cost, intro year, role, and MUL ID. Optionally imports faction/era availability from detail pages. Auto-creates new factions discovered in MUL. Outputs `unmatched_mul_units.csv` for manual review.
+
+**MUL module structure** (`mul/`):
+- `client.rs` — HTTP client with retry (429/5xx), jitter, configurable base URL
+- `quicklist.rs` — JSON deserialization for MUL QuickList endpoint
+- `detail.rs` — HTML parser for availability accordion on detail pages
+- `mappings.rs` — era name → slug and faction name → slug mappings
+- `matcher.rs` — matches MUL units to DB units (overrides → slug → normalized → name)
+- `fetch.rs` — `mul-fetch` subcommand (network → files)
+- `import.rs` — `mul-import` subcommand (files → DB)
 
 ## Database
 
