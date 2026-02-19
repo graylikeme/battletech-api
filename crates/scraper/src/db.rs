@@ -271,18 +271,56 @@ pub async fn refresh_observed_locations(pool: &PgPool) -> anyhow::Result<u64> {
 
 // ── mech data ────────────────────────────────────────────────────────────────
 
+/// Resolve a component alias to its reference table FK ID.
+async fn resolve_alias(pool: &PgPool, table: &str, column: &str, alias: &str) -> Option<i32> {
+    let query = format!(
+        "SELECT {column} FROM {table} WHERE lower(alias) = lower($1)"
+    );
+    sqlx::query_scalar::<_, i32>(&query)
+        .bind(alias.trim())
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+}
+
 /// Upsert mech-specific structural data for a unit.
 pub async fn upsert_mech_data(
     pool: &PgPool,
     unit_id: i32,
     data: &crate::parse::ParsedMechData,
 ) -> anyhow::Result<()> {
+    // Resolve FK aliases for component types
+    let engine_type_id = if let Some(ref et) = data.engine_type {
+        resolve_alias(pool, "engine_type_aliases", "engine_type_id", et).await
+    } else { None };
+    let armor_type_id = if let Some(ref at) = data.armor_type {
+        resolve_alias(pool, "armor_type_aliases", "armor_type_id", at).await
+    } else { None };
+    let structure_type_id = if let Some(ref st) = data.structure_type {
+        resolve_alias(pool, "structure_type_aliases", "structure_type_id", st).await
+    } else { None };
+    let heatsink_type_id = if let Some(ref ht) = data.heat_sink_type {
+        resolve_alias(pool, "heatsink_type_aliases", "heatsink_type_id", ht).await
+    } else { None };
+    let gyro_type_id = if let Some(ref gt) = data.gyro_type {
+        resolve_alias(pool, "gyro_type_aliases", "gyro_type_id", gt).await
+    } else { None };
+    let cockpit_type_id = if let Some(ref ct) = data.cockpit_type {
+        resolve_alias(pool, "cockpit_type_aliases", "cockpit_type_id", ct).await
+    } else { None };
+    let myomer_type_id = if let Some(ref mt) = data.myomer_type {
+        resolve_alias(pool, "myomer_type_aliases", "myomer_type_id", mt).await
+    } else { None };
+
     sqlx::query(
         r#"INSERT INTO unit_mech_data (
                unit_id, config, is_omnimech, engine_rating, engine_type,
                walk_mp, jump_mp, heat_sink_count, heat_sink_type,
-               structure_type, armor_type, gyro_type, cockpit_type, myomer_type
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+               structure_type, armor_type, gyro_type, cockpit_type, myomer_type,
+               engine_type_id, armor_type_id, structure_type_id, heatsink_type_id,
+               gyro_type_id, cockpit_type_id, myomer_type_id
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
            ON CONFLICT (unit_id) DO UPDATE SET
                config          = EXCLUDED.config,
                is_omnimech     = EXCLUDED.is_omnimech,
@@ -296,7 +334,14 @@ pub async fn upsert_mech_data(
                armor_type      = EXCLUDED.armor_type,
                gyro_type       = EXCLUDED.gyro_type,
                cockpit_type    = EXCLUDED.cockpit_type,
-               myomer_type     = EXCLUDED.myomer_type
+               myomer_type     = EXCLUDED.myomer_type,
+               engine_type_id    = EXCLUDED.engine_type_id,
+               armor_type_id     = EXCLUDED.armor_type_id,
+               structure_type_id = EXCLUDED.structure_type_id,
+               heatsink_type_id  = EXCLUDED.heatsink_type_id,
+               gyro_type_id      = EXCLUDED.gyro_type_id,
+               cockpit_type_id   = EXCLUDED.cockpit_type_id,
+               myomer_type_id    = EXCLUDED.myomer_type_id
         "#,
     )
     .bind(unit_id)
@@ -313,6 +358,13 @@ pub async fn upsert_mech_data(
     .bind(&data.gyro_type)
     .bind(&data.cockpit_type)
     .bind(&data.myomer_type)
+    .bind(engine_type_id)
+    .bind(armor_type_id)
+    .bind(structure_type_id)
+    .bind(heatsink_type_id)
+    .bind(gyro_type_id)
+    .bind(cockpit_type_id)
+    .bind(myomer_type_id)
     .execute(pool)
     .await
     .with_context(|| format!("upsert_mech_data for unit {unit_id}"))?;

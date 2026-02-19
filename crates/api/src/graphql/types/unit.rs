@@ -4,7 +4,16 @@ use rust_decimal::prelude::ToPrimitive;
 use crate::{
     db::models::{DbMechData, DbUnit, DbUnitChassis},
     error::AppError,
-    graphql::loaders::MechDataLoader,
+    graphql::{
+        loaders::{
+            ArmorTypeLoader, CockpitTypeLoader, EngineTypeLoader, GyroTypeLoader,
+            HeatsinkTypeLoader, MechDataLoader, MyomerTypeLoader, StructureTypeLoader,
+        },
+        types::construction::{
+            ArmorTypeGql, CockpitTypeGql, EngineTypeGql, GyroTypeGql, HeatsinkTypeGql,
+            MyomerTypeGql, StructureTypeGql,
+        },
+    },
     state::AppState,
 };
 
@@ -126,7 +135,7 @@ impl UnitChassisGql {
 
 // ── Mech Data ─────────────────────────────────────────────────────────────
 
-pub struct MechDataGql(DbMechData);
+pub struct MechDataGql(pub DbMechData);
 
 /// Mech-specific technical data: engine, movement, heat management, armor/structure type, and chassis configuration.
 #[Object]
@@ -146,9 +155,24 @@ impl MechDataGql {
         self.0.engine_rating
     }
 
-    /// Engine type name (e.g. "Fusion Engine", "XL Engine", "Light Engine").
-    async fn engine_type(&self) -> Option<&str> {
+    /// Raw engine type string from MegaMek data. Always available.
+    async fn engine_type_raw(&self) -> Option<&str> {
         self.0.engine_type.as_deref()
+    }
+
+    /// Resolved engine type with full construction properties. Null if not matched to reference table.
+    #[graphql(complexity = 3)]
+    async fn engine(&self, ctx: &Context<'_>) -> Result<Option<EngineTypeGql>, AppError> {
+        if let Some(type_id) = self.0.engine_type_id {
+            let loader = ctx.data::<DataLoader<EngineTypeLoader>>().unwrap();
+            Ok(loader
+                .load_one(type_id)
+                .await
+                .map_err(|e| AppError::Internal(e.message))?
+                .map(EngineTypeGql))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Walking movement points per turn.
@@ -171,34 +195,124 @@ impl MechDataGql {
         self.0.heat_sink_count
     }
 
-    /// Heat sink technology: "Single", "Double", or "Clan Double Heat Sink".
-    async fn heat_sink_type(&self) -> Option<&str> {
+    /// Raw heat sink type string from MegaMek data. Always available.
+    async fn heat_sink_type_raw(&self) -> Option<&str> {
         self.0.heat_sink_type.as_deref()
     }
 
-    /// Internal structure technology (e.g. "Standard", "Endo Steel").
-    async fn structure_type(&self) -> Option<&str> {
+    /// Resolved heat sink type with full construction properties. Null if not matched.
+    #[graphql(complexity = 3)]
+    async fn heatsink(&self, ctx: &Context<'_>) -> Result<Option<HeatsinkTypeGql>, AppError> {
+        if let Some(type_id) = self.0.heatsink_type_id {
+            let loader = ctx.data::<DataLoader<HeatsinkTypeLoader>>().unwrap();
+            Ok(loader
+                .load_one(type_id)
+                .await
+                .map_err(|e| AppError::Internal(e.message))?
+                .map(HeatsinkTypeGql))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Raw structure type string from MegaMek data. Always available.
+    async fn structure_type_raw(&self) -> Option<&str> {
         self.0.structure_type.as_deref()
     }
 
-    /// Armor technology (e.g. "Standard Armor", "Ferro-Fibrous").
-    async fn armor_type(&self) -> Option<&str> {
+    /// Resolved structure type with full construction properties. Null if not matched.
+    #[graphql(complexity = 3)]
+    async fn structure(&self, ctx: &Context<'_>) -> Result<Option<StructureTypeGql>, AppError> {
+        if let Some(type_id) = self.0.structure_type_id {
+            let loader = ctx.data::<DataLoader<StructureTypeLoader>>().unwrap();
+            Ok(loader
+                .load_one(type_id)
+                .await
+                .map_err(|e| AppError::Internal(e.message))?
+                .map(StructureTypeGql))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Raw armor type string from MegaMek data. Always available.
+    async fn armor_type_raw(&self) -> Option<&str> {
         self.0.armor_type.as_deref()
     }
 
-    /// Gyroscope type (e.g. "Standard Gyro", "XL Gyro", "Compact Gyro").
-    async fn gyro_type(&self) -> Option<&str> {
+    /// Resolved armor type with full construction properties. Null if not matched.
+    #[graphql(complexity = 3)]
+    async fn armor(&self, ctx: &Context<'_>) -> Result<Option<ArmorTypeGql>, AppError> {
+        if let Some(type_id) = self.0.armor_type_id {
+            let loader = ctx.data::<DataLoader<ArmorTypeLoader>>().unwrap();
+            Ok(loader
+                .load_one(type_id)
+                .await
+                .map_err(|e| AppError::Internal(e.message))?
+                .map(ArmorTypeGql))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Raw gyro type string from MegaMek data. Always available.
+    async fn gyro_type_raw(&self) -> Option<&str> {
         self.0.gyro_type.as_deref()
     }
 
-    /// Cockpit type (e.g. "Standard Cockpit", "Small Cockpit").
-    async fn cockpit_type(&self) -> Option<&str> {
+    /// Resolved gyro type with full construction properties. Null if not matched.
+    #[graphql(complexity = 3)]
+    async fn gyro(&self, ctx: &Context<'_>) -> Result<Option<GyroTypeGql>, AppError> {
+        if let Some(type_id) = self.0.gyro_type_id {
+            let loader = ctx.data::<DataLoader<GyroTypeLoader>>().unwrap();
+            Ok(loader
+                .load_one(type_id)
+                .await
+                .map_err(|e| AppError::Internal(e.message))?
+                .map(GyroTypeGql))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Raw cockpit type string from MegaMek data. Always available.
+    async fn cockpit_type_raw(&self) -> Option<&str> {
         self.0.cockpit_type.as_deref()
     }
 
-    /// Myomer type (e.g. "Standard", "Triple-Strength Myomer").
-    async fn myomer_type(&self) -> Option<&str> {
+    /// Resolved cockpit type with full construction properties. Null if not matched.
+    #[graphql(complexity = 3)]
+    async fn cockpit(&self, ctx: &Context<'_>) -> Result<Option<CockpitTypeGql>, AppError> {
+        if let Some(type_id) = self.0.cockpit_type_id {
+            let loader = ctx.data::<DataLoader<CockpitTypeLoader>>().unwrap();
+            Ok(loader
+                .load_one(type_id)
+                .await
+                .map_err(|e| AppError::Internal(e.message))?
+                .map(CockpitTypeGql))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Raw myomer type string from MegaMek data. Always available.
+    async fn myomer_type_raw(&self) -> Option<&str> {
         self.0.myomer_type.as_deref()
+    }
+
+    /// Resolved myomer type with full construction properties. Null if not matched.
+    #[graphql(complexity = 3)]
+    async fn myomer(&self, ctx: &Context<'_>) -> Result<Option<MyomerTypeGql>, AppError> {
+        if let Some(type_id) = self.0.myomer_type_id {
+            let loader = ctx.data::<DataLoader<MyomerTypeLoader>>().unwrap();
+            Ok(loader
+                .load_one(type_id)
+                .await
+                .map_err(|e| AppError::Internal(e.message))?
+                .map(MyomerTypeGql))
+        } else {
+            Ok(None)
+        }
     }
 }
 

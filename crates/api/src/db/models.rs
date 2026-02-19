@@ -165,6 +165,13 @@ pub struct DbMechData {
     pub gyro_type: Option<String>,
     pub cockpit_type: Option<String>,
     pub myomer_type: Option<String>,
+    pub engine_type_id: Option<i32>,
+    pub armor_type_id: Option<i32>,
+    pub structure_type_id: Option<i32>,
+    pub heatsink_type_id: Option<i32>,
+    pub gyro_type_id: Option<i32>,
+    pub cockpit_type_id: Option<i32>,
+    pub myomer_type_id: Option<i32>,
 }
 
 // ── Construction Reference ───────────────────────────────────────────────

@@ -244,14 +244,15 @@ pub async fn get_mech_data_batch(
     pool: &PgPool,
     unit_ids: &[i32],
 ) -> Result<Vec<DbMechData>, AppError> {
-    let rows = sqlx::query_as!(
-        DbMechData,
+    let rows = sqlx::query_as::<_, DbMechData>(
         r#"SELECT unit_id, config, is_omnimech, engine_rating, engine_type,
                   walk_mp, jump_mp, heat_sink_count, heat_sink_type,
-                  structure_type, armor_type, gyro_type, cockpit_type, myomer_type
+                  structure_type, armor_type, gyro_type, cockpit_type, myomer_type,
+                  engine_type_id, armor_type_id, structure_type_id, heatsink_type_id,
+                  gyro_type_id, cockpit_type_id, myomer_type_id
            FROM unit_mech_data WHERE unit_id = ANY($1)"#,
-        unit_ids
     )
+    .bind(unit_ids)
     .fetch_all(pool)
     .await?;
     Ok(rows)
