@@ -1,4 +1,5 @@
 mod db;
+mod equipment_seed;
 mod mul;
 mod parse;
 mod seed;
@@ -69,6 +70,25 @@ enum Command {
         types: Vec<u32>,
     },
 
+    /// Seed equipment stats from a JSON file into the database.
+    EquipmentSeed {
+        /// Path to the equipment stats JSON file.
+        #[arg(long, value_name = "FILE")]
+        file: PathBuf,
+
+        /// Override DATABASE_URL (defaults to env var).
+        #[arg(long, env = "DATABASE_URL")]
+        database_url: String,
+
+        /// Maximum DB connections in pool.
+        #[arg(long, default_value_t = 5)]
+        pool_size: u32,
+
+        /// Overwrite all stats columns, not just NULLs.
+        #[arg(long)]
+        force: bool,
+    },
+
     /// Import previously-fetched MUL data from local files into the database.
     MulImport {
         /// Directory containing fetched MUL data.
@@ -121,6 +141,14 @@ async fn main() -> anyhow::Result<()> {
             max_errors,
         } => {
             run_megamek(zip, &database_url, &version, pool_size, max_errors).await
+        }
+        Command::EquipmentSeed {
+            file,
+            database_url,
+            pool_size,
+            force,
+        } => {
+            equipment_seed::run(&file, &database_url, pool_size, force).await
         }
         Command::MulFetch {
             output_dir,
