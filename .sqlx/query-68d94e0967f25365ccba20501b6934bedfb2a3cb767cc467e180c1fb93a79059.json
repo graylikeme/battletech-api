@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,\n                  u.tech_base::text AS \"tech_base!\", u.rules_level::text AS \"rules_level!\",\n                  u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,\n                  u.reintro_year, u.source_book, u.description, NULL::bigint AS total_count\n           FROM units u WHERE u.slug = ANY($1)",
+  "query": "SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,\n                      u.tech_base::text AS \"tech_base!\", u.rules_level::text AS \"rules_level!\",\n                      u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,\n                      u.reintro_year, u.source_book, u.description,\n                      u.mul_id, u.role, u.clan_name, NULL::bigint AS total_count\n               FROM units u WHERE u.chassis_id = $1 ORDER BY u.variant",
   "describe": {
     "columns": [
       {
@@ -80,13 +80,28 @@
       },
       {
         "ordinal": 15,
+        "name": "mul_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 16,
+        "name": "role",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 17,
+        "name": "clan_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 18,
         "name": "total_count",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "TextArray"
+        "Int4"
       ]
     },
     "nullable": [
@@ -105,8 +120,11 @@
       true,
       true,
       true,
+      true,
+      true,
+      true,
       null
     ]
   },
-  "hash": "45ed15f856e5210c65de4d85c763848785ce7d743cc4e2bc0a97fbb0da2a59ee"
+  "hash": "68d94e0967f25365ccba20501b6934bedfb2a3cb767cc467e180c1fb93a79059"
 }
