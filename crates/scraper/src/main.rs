@@ -1,4 +1,5 @@
 mod db;
+mod mul;
 mod parse;
 mod seed;
 
@@ -9,7 +10,7 @@ use std::{
 };
 
 use anyhow::{bail, Context};
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use sqlx::postgres::PgPoolOptions;
 use tracing::{error, info, warn};
 
@@ -18,27 +19,82 @@ use parse::{parse_blk, parse_mtf, UnitType};
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
 #[derive(Parser)]
-#[command(name = "scraper", about = "Import MegaMek unit data into PostgreSQL")]
+#[command(name = "scraper", about = "Import BattleTech unit data into PostgreSQL")]
 struct Cli {
-    /// Path to unit_files.zip from a MegaMek release.
-    #[arg(long, value_name = "FILE")]
-    zip: PathBuf,
+    #[command(subcommand)]
+    command: Command,
+}
 
-    /// Override DATABASE_URL (defaults to env var).
-    #[arg(long, env = "DATABASE_URL")]
-    database_url: String,
+#[derive(Subcommand)]
+enum Command {
+    /// Import MegaMek unit data from a zip file.
+    Megamek {
+        /// Path to unit_files.zip from a MegaMek release.
+        #[arg(long, value_name = "FILE")]
+        zip: PathBuf,
 
-    /// MegaMek version string stored in dataset_metadata.
-    #[arg(long, default_value = "unknown")]
-    version: String,
+        /// Override DATABASE_URL (defaults to env var).
+        #[arg(long, env = "DATABASE_URL")]
+        database_url: String,
 
-    /// Maximum DB connections in pool.
-    #[arg(long, default_value_t = 5)]
-    pool_size: u32,
+        /// MegaMek version string stored in dataset_metadata.
+        #[arg(long, default_value = "unknown")]
+        version: String,
 
-    /// Stop after this many parse errors (0 = unlimited).
-    #[arg(long, default_value_t = 0)]
-    max_errors: usize,
+        /// Maximum DB connections in pool.
+        #[arg(long, default_value_t = 5)]
+        pool_size: u32,
+
+        /// Stop after this many parse errors (0 = unlimited).
+        #[arg(long, default_value_t = 0)]
+        max_errors: usize,
+    },
+
+    /// Fetch Master Unit List data to local files (no DB required).
+    MulFetch {
+        /// Directory to write fetched data to.
+        #[arg(long, value_name = "DIR")]
+        output_dir: PathBuf,
+
+        /// Delay between detail page requests in milliseconds.
+        #[arg(long, default_value_t = 1000)]
+        delay_ms: u64,
+
+        /// MUL base URL override.
+        #[arg(long, env = "MUL_BASE_URL", default_value = mul::client::DEFAULT_BASE_URL)]
+        base_url: String,
+
+        /// Comma-separated MUL type IDs to fetch (18=BattleMech, 19=Vehicle).
+        #[arg(long, default_value = "18,19", value_delimiter = ',')]
+        types: Vec<u32>,
+    },
+
+    /// Import previously-fetched MUL data from local files into the database.
+    MulImport {
+        /// Directory containing fetched MUL data.
+        #[arg(long, value_name = "DIR")]
+        data_dir: PathBuf,
+
+        /// Override DATABASE_URL (defaults to env var).
+        #[arg(long, env = "DATABASE_URL")]
+        database_url: String,
+
+        /// Maximum DB connections in pool.
+        #[arg(long, default_value_t = 5)]
+        pool_size: u32,
+
+        /// Skip importing availability data from detail pages.
+        #[arg(long)]
+        skip_availability: bool,
+
+        /// Force re-import of availability even if rows already exist.
+        #[arg(long)]
+        force: bool,
+
+        /// Path to JSON overrides file mapping MUL IDs to DB slugs.
+        #[arg(long)]
+        overrides: Option<PathBuf>,
+    },
 }
 
 // ── entry point ───────────────────────────────────────────────────────────────
@@ -56,22 +112,69 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    // ── connect ──────────────────────────────────────────────────────────────
+    match cli.command {
+        Command::Megamek {
+            zip,
+            database_url,
+            version,
+            pool_size,
+            max_errors,
+        } => {
+            run_megamek(zip, &database_url, &version, pool_size, max_errors).await
+        }
+        Command::MulFetch {
+            output_dir,
+            delay_ms,
+            base_url,
+            types,
+        } => {
+            mul::fetch::run(output_dir, delay_ms, &base_url, &types).await
+        }
+        Command::MulImport {
+            data_dir,
+            database_url,
+            pool_size,
+            skip_availability,
+            force,
+            overrides,
+        } => {
+            mul::import::run(
+                data_dir,
+                &database_url,
+                pool_size,
+                skip_availability,
+                force,
+                overrides,
+            )
+            .await
+        }
+    }
+}
+
+// ── megamek import ───────────────────────────────────────────────────────────
+
+async fn run_megamek(
+    zip: PathBuf,
+    database_url: &str,
+    version: &str,
+    pool_size: u32,
+    max_errors: usize,
+) -> anyhow::Result<()> {
     let pool = PgPoolOptions::new()
-        .max_connections(cli.pool_size)
-        .connect(&cli.database_url)
+        .max_connections(pool_size)
+        .connect(database_url)
         .await
         .context("connecting to database")?;
 
     // ── seed reference data ──────────────────────────────────────────────────
     let era_count = seed::seed_eras(&pool).await?;
     let faction_count = seed::seed_factions(&pool).await?;
-    seed::seed_metadata(&pool, &cli.version).await?;
-    info!(eras = era_count, factions = faction_count, version = %cli.version, "reference data seeded");
+    seed::seed_metadata(&pool, version).await?;
+    info!(eras = era_count, factions = faction_count, version = %version, "reference data seeded");
 
     // ── open zip ─────────────────────────────────────────────────────────────
-    let file = std::fs::File::open(&cli.zip)
-        .with_context(|| format!("opening zip {:?}", cli.zip))?;
+    let file = std::fs::File::open(&zip)
+        .with_context(|| format!("opening zip {:?}", zip))?;
     let mut archive = zip::ZipArchive::new(BufReader::new(file))
         .context("reading zip archive")?;
 
@@ -79,7 +182,6 @@ async fn main() -> anyhow::Result<()> {
     info!(total_entries, "zip opened");
 
     // ── pass 1: collect file names to decide what to parse ───────────────────
-    // (ZipArchive borrows mutably per entry, so we collect paths first)
     let entry_names: Vec<String> = (0..total_entries)
         .map(|i| archive.by_index(i).map(|e| e.name().to_owned()))
         .collect::<Result<_, _>>()
@@ -141,8 +243,8 @@ async fn main() -> anyhow::Result<()> {
             Err(e) => {
                 errors += 1;
                 error!(file = %name, error = %e, "import failed");
-                if cli.max_errors > 0 && errors >= cli.max_errors {
-                    bail!("reached max_errors limit ({}) — aborting", cli.max_errors);
+                if max_errors > 0 && errors >= max_errors {
+                    bail!("reached max_errors limit ({}) — aborting", max_errors);
                 }
             }
         }
