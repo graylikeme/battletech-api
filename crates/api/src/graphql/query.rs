@@ -252,6 +252,10 @@ impl QueryRoot {
         #[graphql(desc = "Filter by equipment category in snake_case. One of: energy_weapon, ballistic_weapon, missile_weapon, ammo, physical_weapon, equipment, armor, structure, engine, targeting_system, myomer, heat_sink, jump_jet, communications.")] category: Option<String>,
         #[graphql(desc = "Filter by technology base. One of: inner_sphere, clan, mixed, primitive.")] tech_base: Option<String>,
         #[graphql(desc = "Filter by rules level. One of: introductory, standard, advanced, experimental, unofficial.")] rules_level: Option<String>,
+        #[graphql(desc = "Filter to equipment weighing at most this many tons. Only matches items with known tonnage.")] max_tonnage: Option<f64>,
+        #[graphql(desc = "Filter to equipment consuming at most this many critical slots. Only matches items with known crits.")] max_crits: Option<i32>,
+        #[graphql(desc = "Filter to equipment observed in this location across existing units (e.g. \"right_arm\").")] observed_location: Option<String>,
+        #[graphql(desc = "Filter to ammo types compatible with this weapon slug (e.g. \"autocannon-10\").")] ammo_for_slug: Option<String>,
     ) -> Result<EquipmentConnection, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let first = first.unwrap_or(20).clamp(1, 100) as i64;
@@ -260,12 +264,20 @@ impl QueryRoot {
             .and_then(decode_cursor)
             .map(|(_, id)| id);
 
+        let filter = equipment::EquipmentFilter {
+            name_search: name_search.as_deref(),
+            category: category.as_deref(),
+            tech_base: tech_base.as_deref(),
+            rules_level: rules_level.as_deref(),
+            max_tonnage,
+            max_crits,
+            observed_location: observed_location.as_deref(),
+            ammo_for_slug: ammo_for_slug.as_deref(),
+        };
+
         let (rows, total_count, has_next) = equipment::search(
             &state.pool,
-            name_search.as_deref(),
-            category.as_deref(),
-            tech_base.as_deref(),
-            rules_level.as_deref(),
+            filter,
             first,
             after_id,
         )

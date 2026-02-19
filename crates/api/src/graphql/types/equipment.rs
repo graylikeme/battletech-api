@@ -1,6 +1,10 @@
-use async_graphql::{Object, ID};
+use async_graphql::{dataloader::DataLoader, Context, Object, ID};
 
-use crate::db::models::DbEquipment;
+use crate::{
+    db::models::DbEquipment,
+    error::AppError,
+    graphql::loaders::{AmmoForLoader, AmmoTypesLoader},
+};
 
 pub struct EquipmentGql(pub DbEquipment);
 
@@ -98,5 +102,46 @@ impl EquipmentGql {
     /// Flavor text or technical description of the equipment item.
     async fn description(&self) -> Option<&str> {
         self.0.description.as_deref()
+    }
+
+    /// Body locations where this equipment has been observed mounted across existing units.
+    /// Null means locations are unknown or unrestricted.
+    async fn observed_locations(&self) -> Option<&[String]> {
+        self.0.observed_locations.as_deref()
+    }
+
+    /// Source of the latest stats update (e.g. "seed", "manual"). Null if stats are from initial import.
+    async fn stats_source(&self) -> Option<&str> {
+        self.0.stats_source.as_deref()
+    }
+
+    /// The weapon this ammo is compatible with. Null for non-ammo equipment.
+    #[graphql(complexity = 3)]
+    async fn ammo_for(&self, ctx: &Context<'_>) -> Result<Option<EquipmentGql>, AppError> {
+        if let Some(weapon_id) = self.0.ammo_for_id {
+            let loader = ctx.data::<DataLoader<AmmoForLoader>>().unwrap();
+            let weapon = loader
+                .load_one(weapon_id)
+                .await
+                .map_err(|e| AppError::Internal(e.message))?;
+            Ok(weapon.map(EquipmentGql))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Ammo types compatible with this weapon. Empty for non-weapon equipment.
+    #[graphql(complexity = 5)]
+    async fn ammo_types(&self, ctx: &Context<'_>) -> Result<Vec<EquipmentGql>, AppError> {
+        let loader = ctx.data::<DataLoader<AmmoTypesLoader>>().unwrap();
+        let ammos = loader
+            .load_one(self.0.id)
+            .await
+            .map_err(|e| AppError::Internal(e.message))?;
+        Ok(ammos
+            .unwrap_or_default()
+            .into_iter()
+            .map(EquipmentGql)
+            .collect())
     }
 }

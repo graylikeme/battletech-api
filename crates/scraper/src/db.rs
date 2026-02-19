@@ -249,6 +249,26 @@ pub async fn replace_loadout(
     Ok(())
 }
 
+// ── observed locations ────────────────────────────────────────────────────────
+
+/// Refresh observed_locations on equipment from loadout data.
+pub async fn refresh_observed_locations(pool: &PgPool) -> anyhow::Result<u64> {
+    let result = sqlx::query(
+        r#"UPDATE equipment e SET observed_locations = sub.locs
+           FROM (
+             SELECT ul.equipment_id,
+                    array_agg(DISTINCT ul.location::text ORDER BY ul.location::text) AS locs
+             FROM unit_loadout ul
+             WHERE ul.location IS NOT NULL
+             GROUP BY ul.equipment_id
+           ) sub
+           WHERE e.id = sub.equipment_id"#,
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected())
+}
+
 // ── mech data ────────────────────────────────────────────────────────────────
 
 /// Upsert mech-specific structural data for a unit.

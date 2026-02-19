@@ -110,6 +110,9 @@ pub struct DbEquipment {
     pub intro_year: Option<i32>,
     pub source_book: Option<String>,
     pub description: Option<String>,
+    pub observed_locations: Option<Vec<String>>,
+    pub ammo_for_id: Option<i32>,
+    pub stats_source: Option<String>,
     pub total_count: Option<i64>,
 }
 
