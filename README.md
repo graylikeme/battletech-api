@@ -1,11 +1,11 @@
 # BattleTech Data API
 
-A GraphQL API serving BattleTech unit, equipment, faction, and era data sourced from [MegaMek](https://github.com/MegaMek/megamek).
+A GraphQL API serving BattleTech unit, equipment, faction, and era data sourced from [MegaMek](https://github.com/MegaMek/megamek) and the [Master Unit List](http://masterunitlist.info) (MUL).
 
 ## Stack
 
 - **API:** Rust · axum 0.8 · async-graphql 7 · sqlx 0.8 · PostgreSQL 16
-- **Scraper:** reads MegaMek's `unit_files.zip` (MTF + BLK formats), upserts into Postgres
+- **Scraper:** imports from MegaMek unit files (MTF + BLK formats) and the Master Unit List (BV, roles, availability, clan names)
 - **Ops:** Prometheus metrics at `/metrics`, Dockerfile (musl/Alpine), IP rate limiting
 
 ## Quick start
@@ -41,19 +41,27 @@ sqlx migrate run
 ./seed/load.sh
 ```
 
-This loads a pre-exported snapshot (MegaMek 0.50.11 — ~6,500 units, ~2,875 equipment) in seconds.
+This loads a pre-exported snapshot with all MegaMek + MUL data in seconds.
 
-**Option B — Import from MegaMek source files:**
+**Option B — Import from source:**
 
 Download a MegaMek release tarball (e.g. `MegaMek-0.50.11.tar.gz`) and extract it. The unit data is at `data/mekfiles/unit_files.zip` inside the extracted directory.
 
 ```bash
-cargo run -p scraper --release -- \
+# Step 1: Import MegaMek unit files
+cargo run -p scraper@0.1.0 --release -- megamek \
   --zip /path/to/MegaMek-0.50.11/data/mekfiles/unit_files.zip \
   --version "0.50.11"
-```
 
-This seeds reference data (eras, factions) and imports ~6,500 units with loadout, armor locations, quirks, and mech-specific data (engine, movement, heat sinks, armor/structure types).
+# Step 2 (optional): Enrich with MUL data (BV, cost, role, availability, clan names)
+# First fetch MUL data to local files:
+cargo run -p scraper@0.1.0 --release -- mul-fetch \
+  --output-dir ./mul-data --delay-ms 1000
+
+# Then import into DB:
+cargo run -p scraper@0.1.0 --release -- mul-import \
+  --data-dir ./mul-data
+```
 
 **5. Run the API**
 
@@ -80,17 +88,20 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
 ### Example queries
 
 ```graphql
-# Paginated unit search
+# Paginated unit search with filters
 {
   units(first: 20, nameSearch: "Atlas", techBase: "inner_sphere") {
     edges {
       node {
         slug
         fullName
+        clanName
         tonnage
         bv
+        cost
         introYear
         rulesLevel
+        role
       }
     }
     pageInfo {
@@ -101,12 +112,16 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
   }
 }
 
-# Single unit with loadout and mech data
+# Single unit with full detail
 {
   unit(slug: "atlas-as7-d") {
     fullName
+    clanName
     tonnage
     techBase
+    bv
+    cost
+    role
     mechData {
       config
       isOmnimech
@@ -119,17 +134,60 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
       heatSinkType
       armorType
       structureType
+      gyroType
+      cockpitType
+      myomerType
     }
     loadout {
       equipmentName
       location
       quantity
+      isRearFacing
     }
     locations {
       location
       armorPoints
       rearArmor
+      structurePoints
     }
+    quirks {
+      name
+      isPositive
+      description
+    }
+    availability {
+      factionSlug
+      factionName
+      eraSlug
+      eraName
+      availabilityCode
+    }
+  }
+}
+
+# Search Clan units by alternate name
+# nameSearch matches both fullName and clanName
+{
+  units(first: 5, nameSearch: "Fire Moth") {
+    edges {
+      node { slug fullName clanName }
+    }
+  }
+}
+
+# Filter by faction, era, and role
+{
+  units(first: 20, factionSlug: "clan-wolf", eraSlug: "clan-invasion", role: "Striker") {
+    edges {
+      node {
+        slug
+        fullName
+        tonnage
+        bv
+        role
+      }
+    }
+    pageInfo { totalCount }
   }
 }
 
@@ -142,16 +200,39 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
   }
 }
 
-# Era by year
+# Chassis with all variants
 {
-  eraByYear(year: 3055) {
-    slug
+  chassis(slug: "atlas-mech") {
     name
-    startYear
-    endYear
+    unitType
+    tonnage
+    variants {
+      slug
+      fullName
+      bv
+      introYear
+    }
   }
 }
 ```
+
+### Filters
+
+The `units` query supports the following filters:
+
+| Filter | Type | Description |
+|--------|------|-------------|
+| `nameSearch` | String | Case-insensitive substring match on `fullName` and `clanName` |
+| `techBase` | String | `inner_sphere`, `clan`, `mixed`, `primitive` |
+| `rulesLevel` | String | `introductory`, `standard`, `advanced`, `experimental`, `unofficial` |
+| `tonnageMin` / `tonnageMax` | Float | Weight range in metric tons |
+| `factionSlug` | String | Units available to this faction (e.g. `"clan-wolf"`) |
+| `eraSlug` | String | Units available in this era (e.g. `"clan-invasion"`) |
+| `isOmnimech` | Bool | OmniMechs only (`true`) or non-OmniMechs (`false`) |
+| `config` | String | Chassis config: `Biped`, `Quad`, `Tripod`, `LAM` |
+| `engineType` | String | Engine type (e.g. `"XL Engine"`, `"Fusion Engine"`) |
+| `hasJump` | Bool | Jump-capable mechs only |
+| `role` | String | Tactical role (e.g. `"Juggernaut"`, `"Sniper"`, `"Striker"`) |
 
 ### Limits
 
@@ -229,19 +310,36 @@ DATABASE_URL='postgres://USER:PASS@DB_HOST:5432/battletech' sqlx migrate run
 DATABASE_URL='postgres://USER:PASS@DB_HOST:5432/battletech' ./seed/load.sh
 ```
 
-## Data
+## Data sources
 
-Units, chassis, equipment, locations, loadout, and quirks are imported from MegaMek release files. Reference data (eras, factions) is hardcoded in `crates/scraper/src/seed.rs`. Re-running the scraper is idempotent — all inserts use `ON CONFLICT ... DO UPDATE`.
+### MegaMek
 
-MegaMek 0.50.11 produces approximately:
+Units, chassis, equipment, locations, loadout, quirks, and mech-specific data are imported from [MegaMek](https://github.com/MegaMek/megamek) release files. The scraper reads `.mtf` (mech) and `.blk` (vehicle, aerospace, etc.) formats from MegaMek's `unit_files.zip`.
 
-| Table | Rows |
-|-------|------|
-| `unit_chassis` | 1,669 |
-| `units` | 6,535 |
-| `unit_mech_data` | 4,225 |
-| `equipment` | 2,875 |
-| `unit_loadout` | 70,549 |
-| `unit_locations` | 33,156 |
-| `eras` | 10 |
-| `factions` | 33 |
+### Master Unit List (MUL)
+
+The scraper enriches MegaMek data with information from the official [Master Unit List](http://masterunitlist.info):
+
+- **Battle Value (BV)** and **C-bill cost** for game balancing
+- **Tactical roles** (Juggernaut, Sniper, Striker, Brawler, etc.)
+- **MUL ID** linking to the official entry
+- **Clan names** — alternate IS/Clan reporting names for dual-name OmniMechs (e.g. "Fire Moth" for "Dasher")
+- **Faction/era availability** — which factions field each unit in which eras
+
+MUL data is fetched via `mul-fetch` (saves to local files, resume-safe) and imported via `mul-import`. A pre-fetched archive is included at `mul-data.zip`. Units are matched by slug (~95% match rate for BattleMechs/vehicles).
+
+### Data overview
+
+All imports are idempotent — inserts use `ON CONFLICT ... DO UPDATE`.
+
+| Table | Rows | Source |
+|-------|------|--------|
+| `unit_chassis` | ~1,670 | MegaMek |
+| `units` | ~6,535 | MegaMek |
+| `unit_mech_data` | ~4,225 | MegaMek |
+| `equipment` | ~2,875 | MegaMek |
+| `unit_loadout` | ~70,550 | MegaMek |
+| `unit_locations` | ~33,150 | MegaMek |
+| `unit_availability` | ~100,000+ | MUL |
+| `eras` | 10 | seed + MUL |
+| `factions` | ~70 | seed + MUL |
