@@ -2,7 +2,7 @@ pub fn generate_llms_txt(base_url: &str) -> String {
     format!(
         r#"# BattleTech Data API
 
-> GraphQL API for BattleTech tabletop game data: units (mechs, vehicles, fighters, dropships), equipment (weapons, armor, engines), factions, and eras. Data sourced from MegaMek 0.50.11 (~6,500 units, ~2,875 equipment items).
+> GraphQL API for BattleTech tabletop game data: units (mechs, vehicles, fighters, dropships), equipment (weapons, armor, engines), factions, and eras. Data sourced from MegaMek 0.50.11 (~6,500 units, ~2,875 equipment items) enriched with Master Unit List (MUL) data (BV, roles, availability).
 
 ## Endpoint
 
@@ -23,6 +23,9 @@ GET {base_url}/schema.graphql
 - **Equipment category** values (snake_case): energy_weapon, ballistic_weapon, missile_weapon, ammo, physical_weapon, equipment, armor, structure, engine, targeting_system, myomer, heat_sink, jump_jet, communications
 - **Faction type** values: great_house, clan, periphery, mercenary, other
 - **BV** (Battle Value): composite combat effectiveness score used for game balancing
+- **MUL ID**: numeric identifier from the official Master Unit List (masterunitlist.info). Null for units not in MUL
+- **Role**: tactical role from MUL (e.g. "Juggernaut", "Sniper", "Striker", "Brawler", "Missile Boat", "Scout"). Null if unassigned
+- **Clan name**: alternate Clan/IS reporting name for dual-name units (e.g. "Fire Moth A" for "Dasher A"). Null for units without dual names. The `nameSearch` filter matches both `fullName` and `clanName`
 - **Tonnage**: weight in metric tons (20–100 for mechs, up to 500,000+ for jumpships)
 - **Range values**: measured in tabletop hexes
 - **Crits**: number of critical hit slots an equipment item occupies
@@ -63,11 +66,14 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
       node {{
         slug
         fullName
+        clanName
         tonnage
         techBase
         rulesLevel
         bv
         introYear
+        mulId
+        role
       }}
     }}
     pageInfo {{
@@ -84,6 +90,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 {{
   unit(slug: "atlas-as7-d") {{
     fullName
+    clanName
     tonnage
     techBase
     rulesLevel
@@ -164,6 +171,26 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
           runMp
           jumpMp
         }}
+      }}
+    }}
+    pageInfo {{
+      totalCount
+    }}
+  }}
+}}
+```
+
+### Filter units by tactical role
+```graphql
+{{
+  units(first: 10, role: "Juggernaut") {{
+    edges {{
+      node {{
+        slug
+        fullName
+        tonnage
+        role
+        bv
       }}
     }}
     pageInfo {{

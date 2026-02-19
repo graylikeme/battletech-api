@@ -83,6 +83,9 @@ pub struct DbUnit {
     pub reintro_year: Option<i32>,
     pub source_book: Option<String>,
     pub description: Option<String>,
+    pub mul_id: Option<i32>,
+    pub role: Option<String>,
+    pub clan_name: Option<String>,
     /// Used by COUNT(*) OVER() window function when fetching paginated results
     pub total_count: Option<i64>,
 }

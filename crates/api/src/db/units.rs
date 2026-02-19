@@ -11,7 +11,8 @@ pub async fn get_by_slug(pool: &PgPool, slug: &str) -> Result<Option<DbUnit>, Ap
         r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
                   u.tech_base::text AS "tech_base!", u.rules_level::text AS "rules_level!",
                   u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
-                  u.reintro_year, u.source_book, u.description, NULL::bigint AS total_count
+                  u.reintro_year, u.source_book, u.description,
+                  u.mul_id, u.role, u.clan_name, NULL::bigint AS total_count
            FROM units u WHERE u.slug = $1"#,
         slug
     )
@@ -29,7 +30,8 @@ pub async fn get_by_ids(pool: &PgPool, slugs: &[String]) -> Result<Vec<DbUnit>, 
         r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
                   u.tech_base::text AS "tech_base!", u.rules_level::text AS "rules_level!",
                   u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
-                  u.reintro_year, u.source_book, u.description, NULL::bigint AS total_count
+                  u.reintro_year, u.source_book, u.description,
+                  u.mul_id, u.role, u.clan_name, NULL::bigint AS total_count
            FROM units u WHERE u.slug = ANY($1)"#,
         slugs
     )
@@ -50,6 +52,7 @@ pub struct UnitFilter<'a> {
     pub config: Option<&'a str>,
     pub engine_type: Option<&'a str>,
     pub has_jump: Option<bool>,
+    pub role: Option<&'a str>,
 }
 
 pub async fn search(
@@ -68,6 +71,7 @@ pub async fn search(
                   u.tech_base::text AS tech_base, u.rules_level::text AS rules_level,
                   u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
                   u.reintro_year, u.source_book, u.description,
+                  u.mul_id, u.role, u.clan_name,
                   COUNT(*) OVER() AS total_count
            FROM units u"#,
     );
@@ -79,9 +83,11 @@ pub async fn search(
     builder.push(" WHERE TRUE");
 
     if let Some(name) = filter.name_search {
-        builder.push(" AND u.full_name ILIKE '%' || ");
+        builder.push(" AND (u.full_name ILIKE '%' || ");
         builder.push_bind(name);
-        builder.push(" || '%'");
+        builder.push(" || '%' OR u.clan_name ILIKE '%' || ");
+        builder.push_bind(name);
+        builder.push(" || '%')");
     }
     if let Some(tb) = filter.tech_base {
         builder.push(" AND u.tech_base::text = ");
@@ -133,6 +139,10 @@ pub async fn search(
         } else {
             builder.push(" AND (md.jump_mp IS NULL OR md.jump_mp = 0)");
         }
+    }
+    if let Some(role) = filter.role {
+        builder.push(" AND u.role = ");
+        builder.push_bind(role);
     }
     if let Some(aid) = after_id {
         builder.push(" AND u.id > ");

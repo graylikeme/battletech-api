@@ -113,7 +113,8 @@ impl UnitChassisGql {
             r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
                       u.tech_base::text AS "tech_base!", u.rules_level::text AS "rules_level!",
                       u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
-                      u.reintro_year, u.source_book, u.description, NULL::bigint AS total_count
+                      u.reintro_year, u.source_book, u.description,
+                      u.mul_id, u.role, u.clan_name, NULL::bigint AS total_count
                FROM units u WHERE u.chassis_id = $1 ORDER BY u.variant"#,
             self.0.id
         )
@@ -276,6 +277,21 @@ impl UnitGql {
     /// Flavor text or lore description of the unit variant.
     async fn description(&self) -> Option<&str> {
         self.0.description.as_deref()
+    }
+
+    /// Master Unit List numeric ID. Null for units not found in MUL.
+    async fn mul_id(&self) -> Option<i32> {
+        self.0.mul_id
+    }
+
+    /// Tactical role (e.g. "Juggernaut", "Sniper", "Striker"). Null if unassigned.
+    async fn role(&self) -> Option<&str> {
+        self.0.role.as_deref()
+    }
+
+    /// Alternate Clan/IS reporting name (e.g. "Fire Moth A" for "Dasher A"). Null for units without dual names.
+    async fn clan_name(&self) -> Option<&str> {
+        self.0.clan_name.as_deref()
     }
 
     /// Parent chassis this variant belongs to.
