@@ -172,10 +172,13 @@ pub async fn seed_factions(pool: &PgPool) -> anyhow::Result<usize> {
 }
 
 pub async fn seed_metadata(pool: &PgPool, version: &str) -> anyhow::Result<()> {
+    sqlx::query("DELETE FROM dataset_metadata WHERE version = $1")
+        .bind(version)
+        .execute(pool)
+        .await?;
     sqlx::query(
         r#"INSERT INTO dataset_metadata (version, schema_version, description)
-           VALUES ($1, 1, 'Imported from MegaMek ' || $1)
-           ON CONFLICT DO NOTHING"#,
+           VALUES ($1, 1, 'Imported from MegaMek ' || $1)"#,
     )
     .bind(version)
     .execute(pool)
