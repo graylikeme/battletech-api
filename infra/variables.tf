@@ -77,7 +77,7 @@ variable "db_password" {
 variable "domain" {
   description = "Root domain (DNS zone must already exist in TWC)"
   type        = string
-  default     = "battletech.su"
+  default     = "battledroids.ru"
 }
 
 variable "ingress_ip" {
@@ -88,7 +88,7 @@ variable "ingress_ip" {
 # --- Application ---
 
 variable "api_image" {
-  description = "Docker image for the BattleTech API"
+  description = "Docker image for the Battledroids API"
   type        = string
   default     = "ghcr.io/graylikeme/battletech-api:latest"
 }

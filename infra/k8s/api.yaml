@@ -35,7 +35,7 @@ spec:
             - name: RUST_LOG
               value: "info"
             - name: PUBLIC_BASE_URL
-              value: "https://api.battletech.su"
+              value: "https://api.battledroids.ru"
           livenessProbe:
             httpGet:
               path: /health
@@ -81,10 +81,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - api.battletech.su
-      secretName: api-battletech-su-tls
+        - api.battledroids.ru
+      secretName: api-battledroids-ru-tls
   rules:
-    - host: api.battletech.su
+    - host: api.battledroids.ru
       http:
         paths:
           - path: /
