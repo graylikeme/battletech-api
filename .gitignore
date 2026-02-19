@@ -4,6 +4,9 @@
 *.swo
 .claude/settings.local.json
 
+# MUL scraped data (archived in mul-data.zip)
+mul-data/
+
 # Terraform
 infra/.terraform/
 infra/*.tfstate*
