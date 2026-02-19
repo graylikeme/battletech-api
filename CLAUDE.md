@@ -31,6 +31,12 @@ DATABASE_URL=postgres://postgres:pass@localhost:5432/battletech \
 # Add --force to re-import availability even if rows exist
 # Add --overrides overrides.json for manual MUL ID→slug mappings
 
+# Run the scraper — equipment stats seeding
+DATABASE_URL=postgres://postgres:pass@localhost:5432/battletech \
+  cargo run -p scraper@0.1.0 --release -- equipment-seed \
+  --file data/equipment_stats.json
+# Add --force to overwrite previously-seeded stats
+
 # Seed database from dump (alternative to running the scraper)
 ./seed/load.sh            # uses DATABASE_URL from .env
 
@@ -88,7 +94,7 @@ HTTP POST /graphql
 - `db/models.rs` — `Db*` structs derived from `FromRow`, used only inside the db layer
 - `graphql/types/*.rs` — `*Gql` newtypes wrapping `Db*`, with `#[Object]` impls that expose the GraphQL API
 
-**DataLoader** (`graphql/loaders.rs`): `MechDataLoader` uses async-graphql's `dataloader` feature to batch-load `unit_mech_data` rows, preventing N+1 queries when `mechData` is requested in list queries.
+**DataLoader** (`graphql/loaders.rs`): `MechDataLoader` batch-loads `unit_mech_data` rows. Seven component-type loaders (`EngineTypeLoader`, `ArmorTypeLoader`, `StructureTypeLoader`, `HeatsinkTypeLoader`, `GyroTypeLoader`, `CockpitTypeLoader`, `MyomerTypeLoader`) resolve FK references from `unit_mech_data` to construction reference tables. `AmmoForLoader` and `AmmoTypesLoader` handle ammo↔weapon relationships on equipment. All use async-graphql's `dataloader` feature to prevent N+1 queries.
 
 **Pagination** (`graphql/pagination.rs`): keyset cursors encoded as `base64("sort_val|id:N")`. The `search` functions in `db/units.rs` and `db/equipment.rs` use `QueryBuilder` for dynamic WHERE clauses and `COUNT(*) OVER()` for total count in a single query.
 
@@ -102,7 +108,7 @@ HTTP POST /graphql
 
 ### `crates/scraper` — Data importer (MegaMek + MUL)
 
-Three subcommands: `megamek`, `mul-fetch`, `mul-import`.
+Four subcommands: `megamek`, `mul-fetch`, `mul-import`, `equipment-seed`.
 
 **`megamek`** — Reads a MegaMek `unit_files.zip` and upserts all units into Postgres.
 
@@ -121,6 +127,8 @@ The scraper maintains an in-process `HashMap<slug, equipment_id>` cache to avoid
 
 **`mul-import`** — Imports previously-fetched MUL data from local files into Postgres. Matches MUL units to DB units by slug (exact → normalized → case-insensitive full_name). Updates BV, cost, intro year, role, and MUL ID. Optionally imports faction/era availability from detail pages. Auto-creates new factions discovered in MUL. Outputs `unmatched_mul_units.csv` for manual review.
 
+**`equipment-seed`** — Reads `data/equipment_stats.json` and updates equipment rows by slug match. Uses a static alias map to bridge clean JSON slugs (e.g. `clan-er-large-laser`) to MegaMek-generated DB slugs (e.g. `clerlargelaser`). Without `--force`, only updates NULL columns; with `--force`, overwrites all. Sets `stats_source = 'seed'` and `stats_updated_at = now()`.
+
 **MUL module structure** (`mul/`):
 - `client.rs` — HTTP client with retry (429/5xx), jitter, configurable base URL
 - `quicklist.rs` — JSON deserialization for MUL QuickList endpoint
@@ -133,6 +141,10 @@ The scraper maintains an in-process `HashMap<slug, equipment_id>` cache to avoid
 ## Database
 
 Schema is in `migrations/`. PostgreSQL enums defined: `tech_base_enum`, `rules_level_enum`, `equipment_category_enum`, `location_name_enum`.
+
+**Construction reference tables** (migrations 6 + 8–10): `engine_types`, `armor_types`, `structure_types`, `heatsink_types`, `gyro_types`, `cockpit_types`, `myomer_types` store prescriptive component data for unit builders (weight multipliers, crit slots, rules levels). `engine_weight_table` maps engine ratings to standard weights. `mech_internal_structure` maps mech tonnage to per-location structure points. Seven `*_type_aliases` tables map MegaMek text strings to FK IDs. `unit_mech_data` has FK columns (`engine_type_id`, `armor_type_id`, etc.) linking to reference tables, populated on import via alias resolution. Standard gyro/cockpit/myomer are defaulted when MegaMek omits the field.
+
+**Equipment builder columns** (migration 7): `equipment.observed_locations` (TEXT[], GIN-indexed) tracks which locations equipment appears in across existing units. `equipment.ammo_for_id` links ammo to its parent weapon. `equipment.stats_source` / `stats_updated_at` track provenance.
 
 `tonnage` columns are `NUMERIC(10,1)` (widened in migration 2 from `NUMERIC(6,1)` to accommodate dropships/jumpships up to ~500,000 tons).
 

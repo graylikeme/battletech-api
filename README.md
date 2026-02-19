@@ -5,7 +5,7 @@ A GraphQL API serving BattleTech unit, equipment, faction, and era data sourced 
 ## Stack
 
 - **API:** Rust · axum 0.8 · async-graphql 7 · sqlx 0.8 · PostgreSQL 16
-- **Scraper:** imports from MegaMek unit files (MTF + BLK formats) and the Master Unit List (BV, roles, availability, clan names)
+- **Scraper:** imports from MegaMek unit files (MTF + BLK formats), the Master Unit List (BV, roles, availability, clan names), and equipment stats seed data
 - **Ops:** Prometheus metrics at `/metrics`, Dockerfile (musl/Alpine), IP rate limiting
 
 ## Quick start
@@ -112,7 +112,7 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
   }
 }
 
-# Single unit with full detail
+# Single unit with full detail and resolved component types
 {
   unit(slug: "atlas-as7-d") {
     fullName
@@ -126,17 +126,21 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
       config
       isOmnimech
       engineRating
-      engineType
       walkMp
       runMp
       jumpMp
       heatSinkCount
-      heatSinkType
-      armorType
-      structureType
-      gyroType
-      cockpitType
-      myomerType
+      # Resolved component types with construction properties
+      engine { name weightMultiplier ctCrits stCrits }
+      armor { name pointsPerTon crits }
+      structure { name weightFraction crits }
+      heatsink { name dissipation crits weight }
+      gyro { name weightMultiplier crits }
+      cockpit { name weight crits }
+      myomer { name }
+      # Raw MegaMek strings (always available as fallback)
+      engineTypeRaw
+      armorTypeRaw
     }
     loadout {
       equipmentName
@@ -214,6 +218,47 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
     }
   }
 }
+
+# Equipment with stats and ammo relationships
+{
+  equipment(slug: "autocannon-10") {
+    name
+    tonnage
+    crits
+    damage
+    heat
+    rangeShort
+    rangeMedium
+    rangeLong
+    bv
+    observedLocations
+    ammoTypes { slug name }
+  }
+}
+
+# Equipment search with builder filters
+{
+  allEquipment(maxTonnage: 2.0, maxCrits: 3, observedLocation: "right_arm") {
+    edges {
+      node { slug name tonnage crits }
+    }
+  }
+}
+
+# Construction reference — all component types in one request
+{
+  constructionReference {
+    engineTypes { slug name techBase weightMultiplier ctCrits stCrits }
+    armorTypes { slug name pointsPerTon crits }
+    structureTypes { slug name weightFraction crits }
+    heatsinkTypes { slug name dissipation crits weight }
+    gyroTypes { slug name weightMultiplier crits }
+    cockpitTypes { slug name weight crits }
+    myomerTypes { slug name }
+    engineWeights { rating standardWeight }
+    internalStructure { tonnage head centerTorso sideTorso arm leg }
+  }
+}
 ```
 
 ### Filters
@@ -233,6 +278,19 @@ The `units` query supports the following filters:
 | `engineType` | String | Engine type (e.g. `"XL Engine"`, `"Fusion Engine"`) |
 | `hasJump` | Bool | Jump-capable mechs only |
 | `role` | String | Tactical role (e.g. `"Juggernaut"`, `"Sniper"`, `"Striker"`) |
+
+The `allEquipment` query supports additional builder-oriented filters:
+
+| Filter | Type | Description |
+|--------|------|-------------|
+| `nameSearch` | String | Case-insensitive substring match on equipment name |
+| `category` | String | Equipment category in snake_case (e.g. `"energy_weapon"`) |
+| `techBase` | String | `inner_sphere`, `clan`, `mixed`, `primitive` |
+| `rulesLevel` | String | `introductory`, `standard`, `advanced`, `experimental`, `unofficial` |
+| `maxTonnage` | Float | Equipment weighing at most this many tons |
+| `maxCrits` | Int | Equipment consuming at most this many critical slots |
+| `observedLocation` | String | Equipment observed at this location (e.g. `"right_arm"`) |
+| `ammoForSlug` | ID | Ammo types compatible with this weapon slug |
 
 ### Limits
 
@@ -343,3 +401,12 @@ All imports are idempotent — inserts use `ON CONFLICT ... DO UPDATE`.
 | `unit_availability` | ~100,000+ | MUL |
 | `eras` | 10 | seed + MUL |
 | `factions` | ~70 | seed + MUL |
+| `engine_types` | 9 | construction ref |
+| `armor_types` | 9 | construction ref |
+| `structure_types` | 6 | construction ref |
+| `heatsink_types` | 4 | construction ref |
+| `gyro_types` | 5 | construction ref |
+| `cockpit_types` | 6 | construction ref |
+| `myomer_types` | 4 | construction ref |
+| `engine_weight_table` | 79 | construction ref |
+| `mech_internal_structure` | 17 | construction ref |

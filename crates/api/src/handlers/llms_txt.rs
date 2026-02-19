@@ -2,7 +2,7 @@ pub fn generate_llms_txt(base_url: &str) -> String {
     format!(
         r#"# BattleTech Data API
 
-> GraphQL API for BattleTech tabletop game data: units (mechs, vehicles, fighters, dropships), equipment (weapons, armor, engines), factions, and eras. Data sourced from MegaMek 0.50.11 (~6,500 units, ~2,875 equipment items) enriched with Master Unit List (MUL) data (BV, roles, availability).
+> GraphQL API for BattleTech tabletop game data: units (mechs, vehicles, fighters, dropships), equipment (weapons, armor, engines), construction reference tables, factions, and eras. Data sourced from MegaMek 0.50.11 (~6,500 units, ~2,875 equipment items) enriched with Master Unit List (MUL) data (BV, roles, availability). Includes construction reference data for unit builders (engine/armor/structure/heatsink/gyro/cockpit/myomer types with weights and crit slots).
 
 ## Endpoint
 
@@ -29,6 +29,8 @@ GET {base_url}/schema.graphql
 - **Tonnage**: weight in metric tons (20–100 for mechs, up to 500,000+ for jumpships)
 - **Range values**: measured in tabletop hexes
 - **Crits**: number of critical hit slots an equipment item occupies
+- **Resolved component types**: `mechData` provides both raw MegaMek strings (e.g. `engineTypeRaw`) and resolved references (e.g. `engine`) with full construction properties (weight multipliers, crit slots, etc.)
+- **Construction reference**: prescriptive data for unit builders — component types with weights, crit slots, and rules; engine weight table; internal structure table
 
 ## Pagination
 
@@ -85,7 +87,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 }}
 ```
 
-### Get a single unit with full loadout, armor, and mech data
+### Get a single unit with full loadout, armor, and resolved component types
 ```graphql
 {{
   unit(slug: "atlas-as7-d") {{
@@ -101,17 +103,24 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
       config
       isOmnimech
       engineRating
-      engineType
       walkMp
       runMp
       jumpMp
       heatSinkCount
-      heatSinkType
-      structureType
-      armorType
-      gyroType
-      cockpitType
-      myomerType
+      engine {{ name weightMultiplier ctCrits stCrits }}
+      armor {{ name pointsPerTon crits }}
+      structure {{ name weightFraction crits }}
+      heatsink {{ name dissipation crits weight }}
+      gyro {{ name weightMultiplier crits }}
+      cockpit {{ name weight crits }}
+      myomer {{ name properties }}
+      engineTypeRaw
+      armorTypeRaw
+      structureTypeRaw
+      heatSinkTypeRaw
+      gyroTypeRaw
+      cockpitTypeRaw
+      myomerTypeRaw
     }}
     loadout {{
       equipmentName
@@ -166,7 +175,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
         tonnage
         mechData {{
           config
-          engineType
+          engine {{ name }}
           walkMp
           runMp
           jumpMp
@@ -231,7 +240,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 }}
 ```
 
-### Search equipment
+### Search equipment with builder filters
 ```graphql
 {{
   allEquipment(first: 10, nameSearch: "laser", category: "energy_weapon", techBase: "clan") {{
@@ -240,17 +249,91 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
         slug
         name
         tonnage
+        crits
         damage
         heat
         rangeShort
         rangeMedium
         rangeLong
         bv
+        observedLocations
       }}
     }}
     pageInfo {{
       totalCount
     }}
+  }}
+}}
+```
+
+### Filter equipment by weight, crits, and location
+```graphql
+{{
+  allEquipment(first: 20, maxTonnage: 2.0, maxCrits: 3, observedLocation: "right_arm") {{
+    edges {{
+      node {{
+        slug
+        name
+        tonnage
+        crits
+        observedLocations
+      }}
+    }}
+  }}
+}}
+```
+
+### Find ammo types for a weapon
+```graphql
+{{
+  equipment(slug: "autocannon-10") {{
+    name
+    ammoTypes {{
+      slug
+      name
+      tonnage
+      bv
+    }}
+  }}
+}}
+```
+
+### Construction reference — fetch all data for builder initialization
+```graphql
+{{
+  constructionReference {{
+    engineTypes {{ slug name techBase weightMultiplier ctCrits stCrits }}
+    armorTypes {{ slug name techBase pointsPerTon crits }}
+    structureTypes {{ slug name techBase weightFraction crits }}
+    heatsinkTypes {{ slug name techBase dissipation crits weight }}
+    gyroTypes {{ slug name weightMultiplier crits }}
+    cockpitTypes {{ slug name weight crits }}
+    myomerTypes {{ slug name properties }}
+    engineWeights {{ rating standardWeight }}
+    internalStructure {{ tonnage head centerTorso sideTorso arm leg }}
+  }}
+}}
+```
+
+### Look up engine weight for a specific rating
+```graphql
+{{
+  engineWeights(rating: 300) {{
+    rating
+    standardWeight
+  }}
+}}
+```
+
+### Look up internal structure for a tonnage
+```graphql
+{{
+  internalStructure(tonnage: 75) {{
+    head
+    centerTorso
+    sideTorso
+    arm
+    leg
   }}
 }}
 ```
