@@ -163,3 +163,107 @@ pub struct DbMechData {
     pub cockpit_type: Option<String>,
     pub myomer_type: Option<String>,
 }
+
+// ── Construction Reference ───────────────────────────────────────────────
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbEngineType {
+    pub id: i32,
+    pub slug: String,
+    pub name: String,
+    pub tech_base: String,
+    pub rules_level: String,
+    pub weight_multiplier: rust_decimal::Decimal,
+    pub ct_crits: i16,
+    pub st_crits: i16,
+    pub intro_year: Option<i32>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbArmorType {
+    pub id: i32,
+    pub slug: String,
+    pub name: String,
+    pub tech_base: String,
+    pub rules_level: String,
+    pub points_per_ton: rust_decimal::Decimal,
+    pub crits: i16,
+    pub intro_year: Option<i32>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbStructureType {
+    pub id: i32,
+    pub slug: String,
+    pub name: String,
+    pub tech_base: String,
+    pub rules_level: String,
+    pub weight_fraction: rust_decimal::Decimal,
+    pub crits: i16,
+    pub intro_year: Option<i32>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbHeatsinkType {
+    pub id: i32,
+    pub slug: String,
+    pub name: String,
+    pub tech_base: String,
+    pub rules_level: String,
+    pub dissipation: i16,
+    pub crits: i16,
+    pub weight: rust_decimal::Decimal,
+    pub intro_year: Option<i32>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbGyroType {
+    pub id: i32,
+    pub slug: String,
+    pub name: String,
+    pub tech_base: Option<String>,
+    pub rules_level: String,
+    pub weight_multiplier: rust_decimal::Decimal,
+    pub crits: i16,
+    pub is_superheavy_only: bool,
+    pub intro_year: Option<i32>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbCockpitType {
+    pub id: i32,
+    pub slug: String,
+    pub name: String,
+    pub tech_base: Option<String>,
+    pub rules_level: String,
+    pub weight: i16,
+    pub crits: i16,
+    pub intro_year: Option<i32>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbMyomerType {
+    pub id: i32,
+    pub slug: String,
+    pub name: String,
+    pub tech_base: Option<String>,
+    pub rules_level: String,
+    pub intro_year: Option<i32>,
+    pub properties: serde_json::Value,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbEngineWeight {
+    pub rating: i16,
+    pub standard_weight: rust_decimal::Decimal,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct DbInternalStructure {
+    pub tonnage: i16,
+    pub head: i16,
+    pub center_torso: i16,
+    pub side_torso: i16,
+    pub arm: i16,
+    pub leg: i16,
+}

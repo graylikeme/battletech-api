@@ -1,3 +1,4 @@
+pub mod construction;
 pub mod equipment;
 pub mod era;
 pub mod faction;

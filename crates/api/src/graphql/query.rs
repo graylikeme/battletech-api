@@ -1,11 +1,18 @@
 use async_graphql::{Context, Object, SimpleObject};
 
+use rust_decimal::prelude::ToPrimitive;
+
 use crate::{
-    db::{equipment, eras, factions, metadata, units},
+    db::{construction, equipment, eras, factions, metadata, units},
     error::AppError,
     graphql::{
         pagination::{decode_cursor, encode_cursor, PageInfo},
         types::{
+            construction::{
+                ArmorTypeGql, CockpitTypeGql, ConstructionReferenceGql, EngineTypeGql,
+                EngineWeightGql, GyroTypeGql, HeatsinkTypeGql, InternalStructureGql,
+                MyomerTypeGql, RulesLevelFilter, StructureTypeGql, TechBaseFilter,
+            },
             equipment::EquipmentGql,
             era::EraGql,
             faction::FactionGql,
@@ -351,5 +358,209 @@ impl QueryRoot {
         let state = ctx.data::<AppState>().unwrap();
         let rows = eras::get_by_year(&state.pool, year).await?;
         Ok(rows.into_iter().map(EraGql).collect())
+    }
+
+    // ── Construction Reference ───────────────────────────────────────────────
+
+    /// List all engine types, optionally filtered by technology base and/or rules level.
+    async fn engine_types(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
+        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+    ) -> Result<Vec<EngineTypeGql>, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let rows = construction::list_engine_types(
+            &state.pool,
+            tech_base.map(|t| t.as_db_str()),
+            rules_level.map(|r| r.as_db_str()),
+        )
+        .await?;
+        Ok(rows.into_iter().map(EngineTypeGql).collect())
+    }
+
+    /// List all armor types, optionally filtered by technology base and/or rules level.
+    async fn armor_types(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
+        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+    ) -> Result<Vec<ArmorTypeGql>, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let rows = construction::list_armor_types(
+            &state.pool,
+            tech_base.map(|t| t.as_db_str()),
+            rules_level.map(|r| r.as_db_str()),
+        )
+        .await?;
+        Ok(rows.into_iter().map(ArmorTypeGql).collect())
+    }
+
+    /// List all internal structure types, optionally filtered by technology base and/or rules level.
+    async fn structure_types(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
+        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+    ) -> Result<Vec<StructureTypeGql>, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let rows = construction::list_structure_types(
+            &state.pool,
+            tech_base.map(|t| t.as_db_str()),
+            rules_level.map(|r| r.as_db_str()),
+        )
+        .await?;
+        Ok(rows.into_iter().map(StructureTypeGql).collect())
+    }
+
+    /// List all heat sink types, optionally filtered by technology base and/or rules level.
+    async fn heatsink_types(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
+        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+    ) -> Result<Vec<HeatsinkTypeGql>, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let rows = construction::list_heatsink_types(
+            &state.pool,
+            tech_base.map(|t| t.as_db_str()),
+            rules_level.map(|r| r.as_db_str()),
+        )
+        .await?;
+        Ok(rows.into_iter().map(HeatsinkTypeGql).collect())
+    }
+
+    /// List all gyroscope types, optionally filtered by rules level.
+    async fn gyro_types(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+    ) -> Result<Vec<GyroTypeGql>, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let rows = construction::list_gyro_types(
+            &state.pool,
+            rules_level.map(|r| r.as_db_str()),
+        )
+        .await?;
+        Ok(rows.into_iter().map(GyroTypeGql).collect())
+    }
+
+    /// List all cockpit types, optionally filtered by rules level.
+    async fn cockpit_types(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+    ) -> Result<Vec<CockpitTypeGql>, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let rows = construction::list_cockpit_types(
+            &state.pool,
+            rules_level.map(|r| r.as_db_str()),
+        )
+        .await?;
+        Ok(rows.into_iter().map(CockpitTypeGql).collect())
+    }
+
+    /// List all myomer types, optionally filtered by rules level.
+    async fn myomer_types(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+    ) -> Result<Vec<MyomerTypeGql>, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let rows = construction::list_myomer_types(
+            &state.pool,
+            rules_level.map(|r| r.as_db_str()),
+        )
+        .await?;
+        Ok(rows.into_iter().map(MyomerTypeGql).collect())
+    }
+
+    /// Look up engine weights by rating. Returns all ratings if no filter is given.
+    async fn engine_weights(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Filter to a specific engine rating (e.g. 300).")] rating: Option<i32>,
+    ) -> Result<Vec<EngineWeightGql>, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let rows = construction::list_engine_weights(
+            &state.pool,
+            rating.map(|r| r as i16),
+        )
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| EngineWeightGql {
+                rating: r.rating as i32,
+                standard_weight: r.standard_weight.to_f64().unwrap_or(0.0),
+            })
+            .collect())
+    }
+
+    /// Look up internal structure hit points for a specific mech tonnage (20-100 in steps of 5).
+    async fn internal_structure(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Mech tonnage to look up (20-100 in steps of 5).")] tonnage: i32,
+    ) -> Result<Option<InternalStructureGql>, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let row = construction::get_internal_structure(&state.pool, tonnage as i16).await?;
+        Ok(row.map(|r| InternalStructureGql {
+            tonnage: r.tonnage as i32,
+            head: r.head as i32,
+            center_torso: r.center_torso as i32,
+            side_torso: r.side_torso as i32,
+            arm: r.arm as i32,
+            leg: r.leg as i32,
+        }))
+    }
+
+    /// Fetch all construction reference data in one round-trip. Ideal for builder client initialization.
+    #[graphql(complexity = 20)]
+    async fn construction_reference(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<ConstructionReferenceGql, AppError> {
+        let state = ctx.data::<AppState>().unwrap();
+        let pool = &state.pool;
+
+        let (engines, armors, structures, heatsinks, gyros, cockpits, myomers, weights, is_rows) = tokio::try_join!(
+            construction::list_engine_types(pool, None, None),
+            construction::list_armor_types(pool, None, None),
+            construction::list_structure_types(pool, None, None),
+            construction::list_heatsink_types(pool, None, None),
+            construction::list_gyro_types(pool, None),
+            construction::list_cockpit_types(pool, None),
+            construction::list_myomer_types(pool, None),
+            construction::list_engine_weights(pool, None),
+            construction::list_all_internal_structure(pool),
+        )?;
+
+        Ok(ConstructionReferenceGql {
+            engine_types: engines.into_iter().map(EngineTypeGql).collect(),
+            armor_types: armors.into_iter().map(ArmorTypeGql).collect(),
+            structure_types: structures.into_iter().map(StructureTypeGql).collect(),
+            heatsink_types: heatsinks.into_iter().map(HeatsinkTypeGql).collect(),
+            gyro_types: gyros.into_iter().map(GyroTypeGql).collect(),
+            cockpit_types: cockpits.into_iter().map(CockpitTypeGql).collect(),
+            myomer_types: myomers.into_iter().map(MyomerTypeGql).collect(),
+            engine_weights: weights
+                .into_iter()
+                .map(|r| EngineWeightGql {
+                    rating: r.rating as i32,
+                    standard_weight: r.standard_weight.to_f64().unwrap_or(0.0),
+                })
+                .collect(),
+            internal_structure: is_rows
+                .into_iter()
+                .map(|r| InternalStructureGql {
+                    tonnage: r.tonnage as i32,
+                    head: r.head as i32,
+                    center_torso: r.center_torso as i32,
+                    side_torso: r.side_torso as i32,
+                    arm: r.arm as i32,
+                    leg: r.leg as i32,
+                })
+                .collect(),
+        })
     }
 }
