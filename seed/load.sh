@@ -48,7 +48,23 @@ psql "$DB_URL" -q -c "
     factions,
     eras,
     rulesets,
-    dataset_metadata
+    dataset_metadata,
+    engine_type_aliases,
+    armor_type_aliases,
+    structure_type_aliases,
+    heatsink_type_aliases,
+    gyro_type_aliases,
+    cockpit_type_aliases,
+    myomer_type_aliases,
+    engine_types,
+    armor_types,
+    structure_types,
+    heatsink_types,
+    gyro_types,
+    cockpit_types,
+    myomer_types,
+    engine_weight_table,
+    mech_internal_structure
   CASCADE;
 "
 
@@ -70,6 +86,13 @@ psql "$DB_URL" -q -o /dev/null -c "
   SELECT setval('rulesets_id_seq',         COALESCE((SELECT MAX(id) FROM rulesets), 0) + 1, false);
   SELECT setval('faction_eras_id_seq',     COALESCE((SELECT MAX(id) FROM faction_eras), 0) + 1, false);
   SELECT setval('unit_availability_id_seq', COALESCE((SELECT MAX(id) FROM unit_availability), 0) + 1, false);
+  SELECT setval('engine_types_id_seq',     COALESCE((SELECT MAX(id) FROM engine_types), 0) + 1, false);
+  SELECT setval('armor_types_id_seq',      COALESCE((SELECT MAX(id) FROM armor_types), 0) + 1, false);
+  SELECT setval('structure_types_id_seq',  COALESCE((SELECT MAX(id) FROM structure_types), 0) + 1, false);
+  SELECT setval('heatsink_types_id_seq',   COALESCE((SELECT MAX(id) FROM heatsink_types), 0) + 1, false);
+  SELECT setval('gyro_types_id_seq',       COALESCE((SELECT MAX(id) FROM gyro_types), 0) + 1, false);
+  SELECT setval('cockpit_types_id_seq',    COALESCE((SELECT MAX(id) FROM cockpit_types), 0) + 1, false);
+  SELECT setval('myomer_types_id_seq',     COALESCE((SELECT MAX(id) FROM myomer_types), 0) + 1, false);
 "
 
 echo "==> Done. Verifying row counts..."
@@ -83,5 +106,12 @@ psql "$DB_URL" -t -c "
   UNION ALL SELECT 'quirks:         ' || COUNT(*) FROM quirks
   UNION ALL SELECT 'unit_quirks:    ' || COUNT(*) FROM unit_quirks
   UNION ALL SELECT 'eras:           ' || COUNT(*) FROM eras
-  UNION ALL SELECT 'factions:       ' || COUNT(*) FROM factions;
+  UNION ALL SELECT 'factions:       ' || COUNT(*) FROM factions
+  UNION ALL SELECT 'engine_types:   ' || COUNT(*) FROM engine_types
+  UNION ALL SELECT 'armor_types:    ' || COUNT(*) FROM armor_types
+  UNION ALL SELECT 'structure_types:' || COUNT(*) FROM structure_types
+  UNION ALL SELECT 'heatsink_types: ' || COUNT(*) FROM heatsink_types
+  UNION ALL SELECT 'gyro_types:     ' || COUNT(*) FROM gyro_types
+  UNION ALL SELECT 'cockpit_types:  ' || COUNT(*) FROM cockpit_types
+  UNION ALL SELECT 'myomer_types:   ' || COUNT(*) FROM myomer_types;
 "
