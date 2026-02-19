@@ -119,7 +119,9 @@ impl Matcher {
 
 /// Extract the Clan/IS alternate name from a dual-name MUL unit.
 /// For "Dasher (Fire Moth) A" returns `Some("Fire Moth A")`.
-/// Returns the parenthetical name + any trailing variant suffix.
+/// Only extracts when there is a variant suffix after the closing paren,
+/// which distinguishes dual names like "Dasher (Fire Moth) A" from
+/// named/character variants like "Awesome AWS-8Q (Smith)".
 pub fn extract_clan_name(name: &str) -> Option<String> {
     let trimmed = name.trim();
     let open = trimmed.find('(')?;
@@ -128,15 +130,13 @@ pub fn extract_clan_name(name: &str) -> Option<String> {
     let inside = trimmed[open + 1..close].trim();
     let after = trimmed[close + 1..].trim();
 
-    if inside.is_empty() {
+    // Only extract when there's text after the closing paren (variant suffix).
+    // Trailing parentheticals like "(Smith)" are pilot/character names, not dual names.
+    if inside.is_empty() || after.is_empty() {
         return None;
     }
 
-    if after.is_empty() {
-        Some(inside.to_string())
-    } else {
-        Some(format!("{} {}", inside, after))
-    }
+    Some(format!("{} {}", inside, after))
 }
 
 /// Extract alternative names from dual Clan/IS naming patterns.
