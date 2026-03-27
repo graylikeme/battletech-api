@@ -10,8 +10,9 @@ use crate::{
         types::{
             construction::{
                 ArmorTypeGql, CockpitTypeGql, ConstructionReferenceGql, EngineTypeGql,
-                EngineWeightGql, GyroTypeGql, HeatsinkTypeGql, InternalStructureGql,
-                MyomerTypeGql, RulesLevelFilter, StructureTypeGql, TechBaseFilter,
+                EngineWeightGql, EquipmentCategoryFilter, EraFilter, FactionTypeFilter,
+                GyroTypeGql, HeatsinkTypeGql, InternalStructureGql, MyomerTypeGql,
+                RulesLevelFilter, StructureTypeGql, TechBaseFilter, UnitTypeFilter,
             },
             equipment::EquipmentGql,
             era::EraGql,
@@ -140,20 +141,20 @@ impl QueryRoot {
         #[graphql(desc = "Items per page. Default 20, max 100.")] first: Option<i32>,
         #[graphql(desc = "Opaque cursor from a previous pageInfo.endCursor. Omit for the first page.")] after: Option<String>,
         #[graphql(desc = "Case-insensitive substring match against the unit's full name.")] name_search: Option<String>,
-        #[graphql(desc = "Filter by technology base. One of: inner_sphere, clan, mixed, primitive.")] tech_base: Option<String>,
-        #[graphql(desc = "Filter by rules level. One of: introductory, standard, advanced, experimental, unofficial.")] rules_level: Option<String>,
+        #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
+        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
         #[graphql(desc = "Minimum tonnage filter (inclusive). Weight in metric tons.")] tonnage_min: Option<f64>,
         #[graphql(desc = "Maximum tonnage filter (inclusive). Weight in metric tons.")] tonnage_max: Option<f64>,
         #[graphql(desc = "Minimum Battle Value filter (inclusive).")] bv_min: Option<i32>,
         #[graphql(desc = "Maximum Battle Value filter (inclusive).")] bv_max: Option<i32>,
         #[graphql(desc = "Filter to units available to this faction. Lowercase, hyphen-separated slug (e.g. \"clan-wolf\").")] faction_slug: Option<String>,
-        #[graphql(desc = "Filter to units available in this era. Lowercase, hyphen-separated slug (e.g. \"clan-invasion\").")] era_slug: Option<String>,
+        #[graphql(desc = "Filter to units available in this era.")] era_slug: Option<EraFilter>,
         #[graphql(desc = "Filter to OmniMechs only (true) or non-OmniMechs (false).")] is_omnimech: Option<bool>,
         #[graphql(desc = "Filter by chassis config. One of: Biped, Quad, Tripod, LAM.")] config: Option<String>,
         #[graphql(desc = "Filter by engine type (e.g. \"XL Engine\", \"Fusion Engine\").")] engine_type: Option<String>,
         #[graphql(desc = "Filter to jump-capable mechs (true) or non-jumpers (false).")] has_jump: Option<bool>,
         #[graphql(desc = "Filter by tactical role (e.g. \"Juggernaut\", \"Sniper\", \"Striker\"). Case-sensitive, from Master Unit List.")] role: Option<String>,
-        #[graphql(desc = "Filter by unit type: mech, vehicle, fighter, other.")] unit_type: Option<String>,
+        #[graphql(desc = "Filter by unit type.")] unit_type: Option<UnitTypeFilter>,
     ) -> Result<UnitConnection, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let first = first.unwrap_or(20).clamp(1, 100) as i64;
@@ -161,20 +162,20 @@ impl QueryRoot {
 
         let filter = units::UnitFilter {
             name_search: name_search.as_deref(),
-            tech_base: tech_base.as_deref(),
-            rules_level: rules_level.as_deref(),
+            tech_base: tech_base.map(|t| t.as_db_str()),
+            rules_level: rules_level.map(|r| r.as_db_str()),
             tonnage_min,
             tonnage_max,
             bv_min,
             bv_max,
             faction_slug: faction_slug.as_deref(),
-            era_slug: era_slug.as_deref(),
+            era_slug: era_slug.map(|e| e.as_db_str()),
             is_omnimech,
             config: config.as_deref(),
             engine_type: engine_type.as_deref(),
             has_jump,
             role: role.as_deref(),
-            unit_type: unit_type.as_deref(),
+            unit_type: unit_type.map(|u| u.as_db_str()),
         };
 
         let (rows, total_count, has_next) = units::search(
@@ -228,12 +229,16 @@ impl QueryRoot {
     async fn all_chassis(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "Filter by unit type (e.g. \"BattleMech\", \"Vehicle\", \"AeroSpaceFighter\").")] unit_type: Option<String>,
-        #[graphql(desc = "Filter by technology base. One of: inner_sphere, clan, mixed, primitive.")] tech_base: Option<String>,
+        #[graphql(desc = "Filter by unit type.")] unit_type: Option<UnitTypeFilter>,
+        #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
     ) -> Result<Vec<UnitChassisGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
-        let rows =
-            units::list_chassis(&state.pool, unit_type.as_deref(), tech_base.as_deref()).await?;
+        let rows = units::list_chassis(
+            &state.pool,
+            unit_type.map(|u| u.as_db_str()),
+            tech_base.map(|t| t.as_db_str()),
+        )
+        .await?;
         Ok(rows.into_iter().map(UnitChassisGql).collect())
     }
 
@@ -257,9 +262,9 @@ impl QueryRoot {
         #[graphql(desc = "Items per page. Default 20, max 100.")] first: Option<i32>,
         #[graphql(desc = "Opaque cursor from a previous pageInfo.endCursor. Omit for the first page.")] after: Option<String>,
         #[graphql(desc = "Case-insensitive substring match against the equipment name.")] name_search: Option<String>,
-        #[graphql(desc = "Filter by equipment category in snake_case. One of: energy_weapon, ballistic_weapon, missile_weapon, ammo, physical_weapon, equipment, armor, structure, engine, targeting_system, myomer, heat_sink, jump_jet, communications.")] category: Option<String>,
-        #[graphql(desc = "Filter by technology base. One of: inner_sphere, clan, mixed, primitive.")] tech_base: Option<String>,
-        #[graphql(desc = "Filter by rules level. One of: introductory, standard, advanced, experimental, unofficial.")] rules_level: Option<String>,
+        #[graphql(desc = "Filter by equipment category.")] category: Option<EquipmentCategoryFilter>,
+        #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
+        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
         #[graphql(desc = "Filter to equipment weighing at most this many tons. Only matches items with known tonnage.")] max_tonnage: Option<f64>,
         #[graphql(desc = "Filter to equipment consuming at most this many critical slots. Only matches items with known crits.")] max_crits: Option<i32>,
         #[graphql(desc = "Filter to equipment observed in this location across existing units (e.g. \"right_arm\").")] observed_location: Option<String>,
@@ -271,9 +276,9 @@ impl QueryRoot {
 
         let filter = equipment::EquipmentFilter {
             name_search: name_search.as_deref(),
-            category: category.as_deref(),
-            tech_base: tech_base.as_deref(),
-            rules_level: rules_level.as_deref(),
+            category: category.map(|c| c.as_db_str()),
+            tech_base: tech_base.map(|t| t.as_db_str()),
+            rules_level: rules_level.map(|r| r.as_db_str()),
             max_tonnage,
             max_crits,
             observed_location: observed_location.as_deref(),
@@ -331,16 +336,16 @@ impl QueryRoot {
     async fn all_factions(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "Filter by faction classification. One of: great_house, clan, periphery, mercenary, other.")] faction_type: Option<String>,
+        #[graphql(desc = "Filter by faction classification.")] faction_type: Option<FactionTypeFilter>,
         #[graphql(desc = "Filter by clan status. True returns only Clans; false returns only non-Clans.")] is_clan: Option<bool>,
-        #[graphql(desc = "Filter to factions active in this era. Lowercase, hyphen-separated slug (e.g. \"clan-invasion\").")] era_slug: Option<String>,
+        #[graphql(desc = "Filter to factions active in this era.")] era_slug: Option<EraFilter>,
     ) -> Result<Vec<FactionGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let rows = factions::list(
             &state.pool,
-            faction_type.as_deref(),
+            faction_type.map(|f| f.as_db_str()),
             is_clan,
-            era_slug.as_deref(),
+            era_slug.map(|e| e.as_db_str()),
         )
         .await?;
         Ok(rows.into_iter().map(FactionGql).collect())
@@ -352,10 +357,10 @@ impl QueryRoot {
     async fn era(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "Lowercase, hyphen-separated era identifier (e.g. \"clan-invasion\").")] slug: String,
+        #[graphql(desc = "Era identifier.")] slug: EraFilter,
     ) -> Result<Option<EraGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
-        let row = eras::get_by_slug(&state.pool, &slug).await?;
+        let row = eras::get_by_slug(&state.pool, slug.as_db_str()).await?;
         Ok(row.map(EraGql))
     }
 
