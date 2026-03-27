@@ -46,6 +46,8 @@ pub struct UnitFilter<'a> {
     pub rules_level: Option<&'a str>,
     pub tonnage_min: Option<f64>,
     pub tonnage_max: Option<f64>,
+    pub bv_min: Option<i32>,
+    pub bv_max: Option<i32>,
     pub faction_slug: Option<&'a str>,
     pub era_slug: Option<&'a str>,
     pub is_omnimech: Option<bool>,
@@ -53,6 +55,7 @@ pub struct UnitFilter<'a> {
     pub engine_type: Option<&'a str>,
     pub has_jump: Option<bool>,
     pub role: Option<&'a str>,
+    pub unit_type: Option<&'a str>,
 }
 
 pub async fn search(
@@ -65,6 +68,7 @@ pub async fn search(
         || filter.config.is_some()
         || filter.engine_type.is_some()
         || filter.has_jump.is_some();
+    let has_chassis_filter = filter.unit_type.is_some();
     let has_cursor = after_cursor.is_some();
 
     let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new("");
@@ -88,6 +92,9 @@ pub async fn search(
 
     if has_mech_filter {
         builder.push(" JOIN unit_mech_data md ON md.unit_id = u.id");
+    }
+    if has_chassis_filter {
+        builder.push(" JOIN unit_chassis uc ON uc.id = u.chassis_id");
     }
 
     builder.push(" WHERE TRUE");
@@ -153,6 +160,18 @@ pub async fn search(
     if let Some(role) = filter.role {
         builder.push(" AND u.role = ");
         builder.push_bind(role);
+    }
+    if let Some(min) = filter.bv_min {
+        builder.push(" AND u.bv >= ");
+        builder.push_bind(min);
+    }
+    if let Some(max) = filter.bv_max {
+        builder.push(" AND u.bv <= ");
+        builder.push_bind(max);
+    }
+    if let Some(ut) = filter.unit_type {
+        builder.push(" AND uc.unit_type = ");
+        builder.push_bind(ut);
     }
 
     // Close CTE and apply keyset cursor condition in the outer query.
@@ -342,6 +361,8 @@ mod tests {
             rules_level: None,
             tonnage_min: None,
             tonnage_max: None,
+            bv_min: None,
+            bv_max: None,
             faction_slug: None,
             era_slug: None,
             is_omnimech: None,

@@ -144,6 +144,8 @@ impl QueryRoot {
         #[graphql(desc = "Filter by rules level. One of: introductory, standard, advanced, experimental, unofficial.")] rules_level: Option<String>,
         #[graphql(desc = "Minimum tonnage filter (inclusive). Weight in metric tons.")] tonnage_min: Option<f64>,
         #[graphql(desc = "Maximum tonnage filter (inclusive). Weight in metric tons.")] tonnage_max: Option<f64>,
+        #[graphql(desc = "Minimum Battle Value filter (inclusive).")] bv_min: Option<i32>,
+        #[graphql(desc = "Maximum Battle Value filter (inclusive).")] bv_max: Option<i32>,
         #[graphql(desc = "Filter to units available to this faction. Lowercase, hyphen-separated slug (e.g. \"clan-wolf\").")] faction_slug: Option<String>,
         #[graphql(desc = "Filter to units available in this era. Lowercase, hyphen-separated slug (e.g. \"clan-invasion\").")] era_slug: Option<String>,
         #[graphql(desc = "Filter to OmniMechs only (true) or non-OmniMechs (false).")] is_omnimech: Option<bool>,
@@ -151,6 +153,7 @@ impl QueryRoot {
         #[graphql(desc = "Filter by engine type (e.g. \"XL Engine\", \"Fusion Engine\").")] engine_type: Option<String>,
         #[graphql(desc = "Filter to jump-capable mechs (true) or non-jumpers (false).")] has_jump: Option<bool>,
         #[graphql(desc = "Filter by tactical role (e.g. \"Juggernaut\", \"Sniper\", \"Striker\"). Case-sensitive, from Master Unit List.")] role: Option<String>,
+        #[graphql(desc = "Filter by unit type: mech, vehicle, fighter, other.")] unit_type: Option<String>,
     ) -> Result<UnitConnection, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let first = first.unwrap_or(20).clamp(1, 100) as i64;
@@ -162,6 +165,8 @@ impl QueryRoot {
             rules_level: rules_level.as_deref(),
             tonnage_min,
             tonnage_max,
+            bv_min,
+            bv_max,
             faction_slug: faction_slug.as_deref(),
             era_slug: era_slug.as_deref(),
             is_omnimech,
@@ -169,6 +174,7 @@ impl QueryRoot {
             engine_type: engine_type.as_deref(),
             has_jump,
             role: role.as_deref(),
+            unit_type: unit_type.as_deref(),
         };
 
         let (rows, total_count, has_next) = units::search(
