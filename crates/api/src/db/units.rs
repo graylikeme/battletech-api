@@ -49,6 +49,7 @@ pub struct UnitFilter<'a> {
     pub bv_min: Option<i32>,
     pub bv_max: Option<i32>,
     pub faction_slug: Option<&'a str>,
+    pub faction_type: Option<&'a str>,
     pub era_slug: Option<&'a str>,
     pub is_omnimech: Option<bool>,
     pub config: Option<&'a str>,
@@ -128,6 +129,14 @@ pub async fn search(
             JOIN factions f ON f.id = ua.faction_id
             WHERE ua.unit_id = u.id AND f.slug = "#);
         builder.push_bind(faction);
+        builder.push(")");
+    }
+    if let Some(ft) = filter.faction_type {
+        builder.push(r#" AND EXISTS (
+            SELECT 1 FROM unit_availability ua
+            JOIN factions f2 ON f2.id = ua.faction_id
+            WHERE ua.unit_id = u.id AND f2.faction_type = "#);
+        builder.push_bind(ft);
         builder.push(")");
     }
     if let Some(era) = filter.era_slug {
@@ -364,6 +373,7 @@ mod tests {
             bv_min: None,
             bv_max: None,
             faction_slug: None,
+            faction_type: None,
             era_slug: None,
             is_omnimech: None,
             config: None,
