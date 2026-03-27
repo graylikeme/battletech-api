@@ -35,7 +35,7 @@ pub async fn search(
     pool: &PgPool,
     filter: EquipmentFilter<'_>,
     first: i64,
-    after_id: Option<i32>,
+    after_cursor: Option<(&str, i32)>,
 ) -> Result<(Vec<DbEquipment>, i64, bool), AppError> {
     // Pre-resolve ammo_for_slug to ID
     let resolved_ammo_for_id = if let Some(slug) = filter.ammo_for_slug {
@@ -47,7 +47,15 @@ pub async fn search(
         None
     };
 
-    let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+    let has_cursor = after_cursor.is_some();
+
+    let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new("");
+
+    if has_cursor {
+        builder.push("WITH filtered AS MATERIALIZED (");
+    }
+
+    builder.push(
         r#"SELECT id, slug, name, category::text AS category, tech_base::text AS tech_base,
                   rules_level::text AS rules_level, tonnage, crits, damage, heat,
                   range_min, range_short, range_medium, range_long, bv, intro_year,
@@ -91,9 +99,15 @@ pub async fn search(
         builder.push(" AND ammo_for_id = ");
         builder.push_bind(weapon_id);
     }
-    if let Some(aid) = after_id {
+
+    if let Some((sort_val, after_id)) = after_cursor {
+        builder.push(") SELECT * FROM filtered WHERE (name > ");
+        builder.push_bind(sort_val);
+        builder.push(" OR (name = ");
+        builder.push_bind(sort_val);
         builder.push(" AND id > ");
-        builder.push_bind(aid);
+        builder.push_bind(after_id);
+        builder.push("))");
     }
 
     builder.push(" ORDER BY name, id LIMIT ");

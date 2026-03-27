@@ -154,10 +154,7 @@ impl QueryRoot {
     ) -> Result<UnitConnection, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let first = first.unwrap_or(20).clamp(1, 100) as i64;
-        let after_id = after
-            .as_deref()
-            .and_then(decode_cursor)
-            .map(|(_, id)| id);
+        let after_cursor = after.as_deref().and_then(decode_cursor);
 
         let filter = units::UnitFilter {
             name_search: name_search.as_deref(),
@@ -174,8 +171,13 @@ impl QueryRoot {
             role: role.as_deref(),
         };
 
-        let (rows, total_count, has_next) =
-            units::search(&state.pool, filter, first, after_id).await?;
+        let (rows, total_count, has_next) = units::search(
+            &state.pool,
+            filter,
+            first,
+            after_cursor.as_ref().map(|(s, id)| (s.as_str(), *id)),
+        )
+        .await?;
 
         let edges: Vec<UnitEdge> = rows
             .into_iter()
@@ -195,7 +197,7 @@ impl QueryRoot {
             edges,
             page_info: PageInfo {
                 has_next_page: has_next,
-                has_previous_page: after_id.is_some(),
+                has_previous_page: after_cursor.is_some(),
                 start_cursor,
                 end_cursor,
                 total_count,
@@ -259,10 +261,7 @@ impl QueryRoot {
     ) -> Result<EquipmentConnection, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let first = first.unwrap_or(20).clamp(1, 100) as i64;
-        let after_id = after
-            .as_deref()
-            .and_then(decode_cursor)
-            .map(|(_, id)| id);
+        let after_cursor = after.as_deref().and_then(decode_cursor);
 
         let filter = equipment::EquipmentFilter {
             name_search: name_search.as_deref(),
@@ -279,7 +278,7 @@ impl QueryRoot {
             &state.pool,
             filter,
             first,
-            after_id,
+            after_cursor.as_ref().map(|(s, id)| (s.as_str(), *id)),
         )
         .await?;
 
@@ -301,7 +300,7 @@ impl QueryRoot {
             edges,
             page_info: PageInfo {
                 has_next_page: has_next,
-                has_previous_page: after_id.is_some(),
+                has_previous_page: after_cursor.is_some(),
                 start_cursor,
                 end_cursor,
                 total_count,

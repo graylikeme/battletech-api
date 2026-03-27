@@ -59,14 +59,24 @@ pub async fn search(
     pool: &PgPool,
     filter: UnitFilter<'_>,
     first: i64,
-    after_id: Option<i32>,
+    after_cursor: Option<(&str, i32)>,
 ) -> Result<(Vec<DbUnit>, i64, bool), AppError> {
     let has_mech_filter = filter.is_omnimech.is_some()
         || filter.config.is_some()
         || filter.engine_type.is_some()
         || filter.has_jump.is_some();
+    let has_cursor = after_cursor.is_some();
 
-    let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+    let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new("");
+
+    // When paginating with a cursor, wrap the base query in a MATERIALIZED CTE
+    // so that COUNT(*) OVER() reflects the total filtered rows (not just rows
+    // after the cursor position).
+    if has_cursor {
+        builder.push("WITH filtered AS MATERIALIZED (");
+    }
+
+    builder.push(
         r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
                   u.tech_base::text AS tech_base, u.rules_level::text AS rules_level,
                   u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
@@ -144,12 +154,20 @@ pub async fn search(
         builder.push(" AND u.role = ");
         builder.push_bind(role);
     }
-    if let Some(aid) = after_id {
-        builder.push(" AND u.id > ");
-        builder.push_bind(aid);
+
+    // Close CTE and apply keyset cursor condition in the outer query.
+    // The cursor uses (full_name, id) to match the ORDER BY columns.
+    if let Some((sort_val, after_id)) = after_cursor {
+        builder.push(") SELECT * FROM filtered WHERE (full_name > ");
+        builder.push_bind(sort_val);
+        builder.push(" OR (full_name = ");
+        builder.push_bind(sort_val);
+        builder.push(" AND id > ");
+        builder.push_bind(after_id);
+        builder.push("))");
     }
 
-    builder.push(" ORDER BY u.full_name, u.id LIMIT ");
+    builder.push(" ORDER BY full_name, id LIMIT ");
     builder.push_bind(first + 1);
 
     let mut rows = builder
