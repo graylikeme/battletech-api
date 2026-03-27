@@ -18,10 +18,12 @@ GET {base_url}/schema.graphql
 
 - **Slugs**: lowercase, hyphen-separated identifiers. Examples: "atlas-as7-d", "clan-wolf", "medium-laser". Chassis slugs include the unit type suffix: "atlas-mech", "demolisher-vehicle"
 - **Years**: in-universe BattleTech timeline years (e.g. 3025, 3055), not real-world dates
-- **Tech base** values (snake_case): inner_sphere, clan, mixed, primitive
-- **Rules level** values (snake_case): introductory, standard, advanced, experimental, unofficial
-- **Equipment category** values (snake_case): energy_weapon, ballistic_weapon, missile_weapon, ammo, physical_weapon, equipment, armor, structure, engine, targeting_system, myomer, heat_sink, jump_jet, communications
-- **Faction type** values: great_house, clan, periphery, mercenary, other
+- **Tech base** (enum TechBaseFilter): INNER_SPHERE, CLAN, MIXED, PRIMITIVE
+- **Rules level** (enum RulesLevelFilter): INTRODUCTORY, STANDARD, ADVANCED, EXPERIMENTAL, UNOFFICIAL
+- **Equipment category** (enum EquipmentCategoryFilter): ENERGY_WEAPON, BALLISTIC_WEAPON, MISSILE_WEAPON, PHYSICAL_WEAPON, AMMUNITION, EQUIPMENT, ARMOR, STRUCTURE, ENGINE, GYRO, COCKPIT, ACTUATOR, HEAT_SINK, JUMP_JET, TARGETING_COMPUTER
+- **Unit type** (enum UnitTypeFilter): MECH, VEHICLE, FIGHTER, OTHER
+- **Era** (enum EraFilter): AGE_OF_WAR, STAR_LEAGUE, EARLY_SUCCESSION_WARS, LATE_SUCCESSION_WARS, RENAISSANCE, CLAN_INVASION, CIVIL_WAR, JIHAD, DARK_AGE, IL_CLAN
+- **Faction type** (enum FactionTypeFilter): GREAT_HOUSE, CLAN, PERIPHERY, MERCENARY, OTHER
 - **BV** (Battle Value): composite combat effectiveness score used for game balancing
 - **MUL ID**: numeric identifier from the official Master Unit List (masterunitlist.info). Null for units not in MUL
 - **Role**: tactical role from MUL (e.g. "Juggernaut", "Sniper", "Striker", "Brawler", "Missile Boat", "Scout"). Null if unassigned
@@ -146,7 +148,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 ### Filter units by BV range and unit type (roster building)
 ```graphql
 {{
-  units(first: 20, bvMin: 1000, bvMax: 2000, unitType: "mech", eraSlug: "clan-invasion", factionSlug: "clan-wolf") {{
+  units(first: 20, bvMin: 1000, bvMax: 2000, unitType: MECH, eraSlug: CLAN_INVASION, factionSlug: "clan-wolf") {{
     edges {{
       node {{
         slug
@@ -166,7 +168,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 ### Filter units by faction and era
 ```graphql
 {{
-  units(first: 20, factionSlug: "clan-wolf", eraSlug: "clan-invasion", techBase: "clan") {{
+  units(first: 20, factionSlug: "clan-wolf", eraSlug: CLAN_INVASION, techBase: CLAN) {{
     edges {{
       node {{
         slug
@@ -263,7 +265,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 ### Search equipment with builder filters
 ```graphql
 {{
-  allEquipment(first: 10, nameSearch: "laser", category: "energy_weapon", techBase: "clan") {{
+  allEquipment(first: 10, nameSearch: "laser", category: ENERGY_WEAPON, techBase: CLAN) {{
     edges {{
       node {{
         slug
