@@ -8,7 +8,7 @@ use crate::db::models::{
 
 // ── Filter Enums ─────────────────────────────────────────────────────────────
 
-/// Technology base filter for construction reference queries.
+/// Technology base filter.
 #[derive(Enum, Copy, Clone, Eq, PartialEq)]
 pub enum TechBaseFilter {
     /// Inner Sphere technology.
@@ -32,7 +32,7 @@ impl TechBaseFilter {
     }
 }
 
-/// Rules level filter for construction reference queries.
+/// Rules level filter.
 #[derive(Enum, Copy, Clone, Eq, PartialEq)]
 pub enum RulesLevelFilter {
     /// Basic game rules, limited equipment options.
@@ -55,6 +55,157 @@ impl RulesLevelFilter {
             Self::Advanced => "advanced",
             Self::Experimental => "experimental",
             Self::Unofficial => "unofficial",
+        }
+    }
+}
+
+/// Unit type filter.
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+pub enum UnitTypeFilter {
+    /// BattleMech (bipedal/quad combat walker).
+    Mech,
+    /// Combat vehicle (tracked, wheeled, hover, VTOL).
+    Vehicle,
+    /// Aerospace fighter or conventional fighter.
+    Fighter,
+    /// Other unit types (battle armor, infantry, etc.).
+    Other,
+}
+
+impl UnitTypeFilter {
+    pub fn as_db_str(self) -> &'static str {
+        match self {
+            Self::Mech => "mech",
+            Self::Vehicle => "vehicle",
+            Self::Fighter => "fighter",
+            Self::Other => "other",
+        }
+    }
+}
+
+/// Equipment category filter.
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+pub enum EquipmentCategoryFilter {
+    /// Energy-based weapons (lasers, PPCs, flamers).
+    EnergyWeapon,
+    /// Ballistic weapons (autocannons, Gauss rifles, machine guns).
+    BallisticWeapon,
+    /// Missile weapons (LRMs, SRMs, MRMs).
+    MissileWeapon,
+    /// Physical attack weapons (hatchets, swords, claws).
+    PhysicalWeapon,
+    /// Ammunition for ballistic and missile weapons.
+    Ammunition,
+    /// General equipment (ECM, BAP, CASE, etc.).
+    Equipment,
+    /// Armor systems.
+    Armor,
+    /// Internal structure systems.
+    Structure,
+    /// Engine systems.
+    Engine,
+    /// Gyroscope systems.
+    Gyro,
+    /// Cockpit systems.
+    Cockpit,
+    /// Arm/leg actuators.
+    Actuator,
+    /// Heat dissipation systems.
+    HeatSink,
+    /// Jump jets and improved jump jets.
+    JumpJet,
+    /// Targeting computers.
+    TargetingComputer,
+}
+
+impl EquipmentCategoryFilter {
+    pub fn as_db_str(self) -> &'static str {
+        match self {
+            Self::EnergyWeapon => "energy_weapon",
+            Self::BallisticWeapon => "ballistic_weapon",
+            Self::MissileWeapon => "missile_weapon",
+            Self::PhysicalWeapon => "physical_weapon",
+            Self::Ammunition => "ammunition",
+            Self::Equipment => "equipment",
+            Self::Armor => "armor",
+            Self::Structure => "structure",
+            Self::Engine => "engine",
+            Self::Gyro => "gyro",
+            Self::Cockpit => "cockpit",
+            Self::Actuator => "actuator",
+            Self::HeatSink => "heat_sink",
+            Self::JumpJet => "jump_jet",
+            Self::TargetingComputer => "targeting_computer",
+        }
+    }
+}
+
+/// Era filter for availability-based queries.
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+pub enum EraFilter {
+    /// Age of War (2398–2570).
+    AgeOfWar,
+    /// Star League (2571–2780).
+    StarLeague,
+    /// Early Succession Wars (2781–2900).
+    EarlySuccessionWars,
+    /// Late Succession Wars / LosTech (2901–3019).
+    LateSuccessionWars,
+    /// Renaissance (3020–3049).
+    Renaissance,
+    /// Clan Invasion (3050–3061).
+    ClanInvasion,
+    /// Civil War (3062–3067).
+    CivilWar,
+    /// Jihad (3068–3080).
+    Jihad,
+    /// Dark Age (3081–3150).
+    DarkAge,
+    /// ilClan (3151–present).
+    #[graphql(name = "IL_CLAN")]
+    IlClan,
+}
+
+impl EraFilter {
+    pub fn as_db_str(self) -> &'static str {
+        match self {
+            Self::AgeOfWar => "age-of-war",
+            Self::StarLeague => "star-league",
+            Self::EarlySuccessionWars => "early-succession-wars",
+            Self::LateSuccessionWars => "late-succession-wars",
+            Self::Renaissance => "renaissance",
+            Self::ClanInvasion => "clan-invasion",
+            Self::CivilWar => "civil-war",
+            Self::Jihad => "jihad",
+            Self::DarkAge => "dark-age",
+            Self::IlClan => "ilclan",
+        }
+    }
+}
+
+/// Faction classification filter.
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+pub enum FactionTypeFilter {
+    /// Major Inner Sphere ruling house (Steiner, Davion, Liao, Marik, Kurita).
+    GreatHouse,
+    /// Clan faction.
+    Clan,
+    /// Periphery state.
+    Periphery,
+    /// Mercenary organization.
+    Mercenary,
+    /// Other factions (ComStar, Word of Blake, etc.).
+    Other,
+}
+
+impl FactionTypeFilter {
+    pub fn as_db_str(self) -> &'static str {
+        match self {
+            Self::GreatHouse => "great_house",
+            Self::Clan => "clan",
+            Self::Periphery => "periphery",
+            Self::Mercenary => "mercenary",
+            Self::Other => "other",
         }
     }
 }
