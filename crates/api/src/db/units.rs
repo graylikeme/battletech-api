@@ -290,3 +290,168 @@ pub async fn get_quirks(pool: &PgPool, unit_id: i32) -> Result<Vec<DbQuirk>, App
     .await?;
     Ok(rows)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Insert units whose auto-increment IDs do NOT match alphabetical name
+    /// order — the exact scenario that triggered the keyset pagination bug.
+    async fn seed_units(pool: &PgPool) {
+        sqlx::query(
+            "INSERT INTO unit_chassis (slug, name, unit_type, tech_base, tonnage)
+             VALUES ('test-mech', 'Test', 'BattleMech', 'inner_sphere', 75)",
+        )
+        .execute(pool)
+        .await
+        .unwrap();
+
+        let chassis_id: i32 =
+            sqlx::query_scalar("SELECT id FROM unit_chassis WHERE slug = 'test-mech'")
+                .fetch_one(pool)
+                .await
+                .unwrap();
+
+        // Inserted in reverse-alpha order → id 1=Zephyr … id 5=Atlas.
+        let units = [
+            ("zephyr-zph-1", "ZPH-1", "Zephyr ZPH-1"),
+            ("dragon-drg-1n", "DRG-1N", "Dragon DRG-1N"),
+            ("centurion-cn9-a", "CN9-A", "Centurion CN9-A"),
+            ("banshee-bnc-3e", "BNC-3E", "Banshee BNC-3E"),
+            ("atlas-as7-d", "AS7-D", "Atlas AS7-D"),
+        ];
+        for (slug, variant, full_name) in &units {
+            sqlx::query(
+                "INSERT INTO units (slug, chassis_id, variant, full_name, tech_base, rules_level, tonnage)
+                 VALUES ($1, $2, $3, $4, 'inner_sphere', 'standard', 75)",
+            )
+            .bind(slug)
+            .bind(chassis_id)
+            .bind(variant)
+            .bind(full_name)
+            .execute(pool)
+            .await
+            .unwrap();
+        }
+    }
+
+    fn empty_filter() -> UnitFilter<'static> {
+        UnitFilter {
+            name_search: None,
+            tech_base: None,
+            rules_level: None,
+            tonnage_min: None,
+            tonnage_max: None,
+            faction_slug: None,
+            era_slug: None,
+            is_omnimech: None,
+            config: None,
+            engine_type: None,
+            has_jump: None,
+            role: None,
+        }
+    }
+
+    /// Regression: pagination must not produce duplicates or skip items when
+    /// DB row IDs don't match the alphabetical sort order.
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn keyset_pagination_no_duplicates_or_gaps(pool: PgPool) {
+        seed_units(&pool).await;
+
+        let mut all_names: Vec<String> = vec![];
+        let mut cursor: Option<(String, i32)> = None;
+        let mut pages = 0;
+
+        loop {
+            let cursor_ref = cursor.as_ref().map(|(s, id)| (s.as_str(), *id));
+            let (rows, total, has_next) =
+                search(&pool, empty_filter(), 2, cursor_ref).await.unwrap();
+
+            assert_eq!(total, 5, "totalCount must be stable across all pages");
+
+            for row in &rows {
+                all_names.push(row.full_name.clone());
+            }
+
+            pages += 1;
+            if !has_next {
+                break;
+            }
+            let last = rows.last().unwrap();
+            cursor = Some((last.full_name.clone(), last.id));
+        }
+
+        assert_eq!(pages, 3, "5 items / page size 2 = 3 pages");
+        assert_eq!(
+            all_names,
+            ["Atlas AS7-D", "Banshee BNC-3E", "Centurion CN9-A", "Dragon DRG-1N", "Zephyr ZPH-1"],
+            "items must appear in alphabetical order with no duplicates or gaps"
+        );
+    }
+
+    /// Regression: totalCount must reflect all filtered rows, not just rows
+    /// remaining after the cursor position.
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn total_count_stable_across_pages(pool: PgPool) {
+        seed_units(&pool).await;
+
+        let (page1, total1, _) = search(&pool, empty_filter(), 2, None).await.unwrap();
+        let last = page1.last().unwrap();
+        let cursor = (last.full_name.as_str(), last.id);
+
+        let (_, total2, _) = search(&pool, empty_filter(), 2, Some(cursor)).await.unwrap();
+
+        assert_eq!(total1, total2, "totalCount must not change between pages");
+    }
+
+    /// Edge case: items with the same name must paginate correctly using the
+    /// ID tiebreaker.
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn pagination_with_duplicate_names(pool: PgPool) {
+        sqlx::query(
+            "INSERT INTO unit_chassis (slug, name, unit_type, tech_base, tonnage)
+             VALUES ('test-mech', 'Test', 'BattleMech', 'inner_sphere', 75)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let chassis_id: i32 =
+            sqlx::query_scalar("SELECT id FROM unit_chassis WHERE slug = 'test-mech'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+
+        for i in 1..=3 {
+            sqlx::query(
+                "INSERT INTO units (slug, chassis_id, variant, full_name, tech_base, rules_level, tonnage)
+                 VALUES ($1, $2, $3, 'Same Name', 'inner_sphere', 'standard', 75)",
+            )
+            .bind(format!("same-name-{i}"))
+            .bind(chassis_id)
+            .bind(format!("V{i}"))
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+
+        let (page1, _, has_next) = search(&pool, empty_filter(), 2, None).await.unwrap();
+        assert!(has_next);
+        assert_eq!(page1.len(), 2);
+
+        let last = page1.last().unwrap();
+        let cursor = (last.full_name.as_str(), last.id);
+        let (page2, _, has_next2) = search(&pool, empty_filter(), 2, Some(cursor)).await.unwrap();
+        assert!(!has_next2);
+        assert_eq!(page2.len(), 1);
+
+        let all_ids: Vec<i32> = page1.iter().chain(page2.iter()).map(|u| u.id).collect();
+        assert_eq!(all_ids.len(), 3);
+        let unique: std::collections::HashSet<i32> = all_ids.iter().copied().collect();
+        assert_eq!(unique.len(), 3, "no duplicate IDs");
+        assert!(
+            all_ids.windows(2).all(|w| w[0] < w[1]),
+            "IDs must be ascending when names are equal"
+        );
+    }
+}

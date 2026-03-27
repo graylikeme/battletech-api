@@ -124,3 +124,90 @@ pub async fn search(
 
     Ok((rows, total_count, has_next))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Insert equipment in reverse-alpha order so IDs don't match name sort.
+    async fn seed_equipment(pool: &PgPool) {
+        let items = [
+            ("zzz-laser", "ZZZ Laser"),
+            ("death-ray", "Death Ray"),
+            ("medium-laser", "Medium Laser"),
+            ("beam-rifle", "Beam Rifle"),
+            ("alpha-cannon", "Alpha Cannon"),
+        ];
+        for (slug, name) in &items {
+            sqlx::query(
+                "INSERT INTO equipment (slug, name, category, tech_base, rules_level)
+                 VALUES ($1, $2, 'energy_weapon', 'inner_sphere', 'standard')",
+            )
+            .bind(slug)
+            .bind(name)
+            .execute(pool)
+            .await
+            .unwrap();
+        }
+    }
+
+    fn empty_filter() -> EquipmentFilter<'static> {
+        EquipmentFilter {
+            name_search: None,
+            category: None,
+            tech_base: None,
+            rules_level: None,
+            max_tonnage: None,
+            max_crits: None,
+            observed_location: None,
+            ammo_for_slug: None,
+        }
+    }
+
+    /// Regression: same keyset pagination bug as units — IDs vs name order.
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn keyset_pagination_no_duplicates_or_gaps(pool: PgPool) {
+        seed_equipment(&pool).await;
+
+        let mut all_names: Vec<String> = vec![];
+        let mut cursor: Option<(String, i32)> = None;
+
+        loop {
+            let cursor_ref = cursor.as_ref().map(|(s, id)| (s.as_str(), *id));
+            let (rows, total, has_next) =
+                search(&pool, empty_filter(), 2, cursor_ref).await.unwrap();
+
+            assert_eq!(total, 5, "totalCount must be stable across all pages");
+
+            for row in &rows {
+                all_names.push(row.name.clone());
+            }
+
+            if !has_next {
+                break;
+            }
+            let last = rows.last().unwrap();
+            cursor = Some((last.name.clone(), last.id));
+        }
+
+        assert_eq!(
+            all_names,
+            ["Alpha Cannon", "Beam Rifle", "Death Ray", "Medium Laser", "ZZZ Laser"],
+            "items must appear in alphabetical order with no duplicates or gaps"
+        );
+    }
+
+    /// Regression: totalCount must not shrink on page 2.
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn total_count_stable_across_pages(pool: PgPool) {
+        seed_equipment(&pool).await;
+
+        let (page1, total1, _) = search(&pool, empty_filter(), 2, None).await.unwrap();
+        let last = page1.last().unwrap();
+        let cursor = (last.name.as_str(), last.id);
+
+        let (_, total2, _) = search(&pool, empty_filter(), 2, Some(cursor)).await.unwrap();
+
+        assert_eq!(total1, total2, "totalCount must not change between pages");
+    }
+}

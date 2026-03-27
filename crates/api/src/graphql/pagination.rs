@@ -30,3 +30,32 @@ pub struct PageInfo {
     /// Total number of items matching the query filters, across all pages.
     pub total_count: i64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_decode_roundtrip() {
+        let cursor = encode_cursor("Atlas AS7-D", 42);
+        let (sort_val, id) = decode_cursor(&cursor).unwrap();
+        assert_eq!(sort_val, "Atlas AS7-D");
+        assert_eq!(id, 42);
+    }
+
+    #[test]
+    fn encode_decode_special_characters() {
+        let cursor = encode_cursor("'Mech (Special) / Variant", 999);
+        let (sort_val, id) = decode_cursor(&cursor).unwrap();
+        assert_eq!(sort_val, "'Mech (Special) / Variant");
+        assert_eq!(id, 999);
+    }
+
+    #[test]
+    fn decode_invalid_returns_none() {
+        assert!(decode_cursor("not-valid-base64!!!").is_none());
+        assert!(decode_cursor(&STANDARD.encode("missing-id-marker")).is_none());
+        assert!(decode_cursor(&STANDARD.encode("value|id:not_a_number")).is_none());
+        assert!(decode_cursor("").is_none());
+    }
+}
