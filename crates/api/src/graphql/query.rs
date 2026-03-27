@@ -148,7 +148,7 @@ impl QueryRoot {
         #[graphql(desc = "Minimum Battle Value filter (inclusive).")] bv_min: Option<i32>,
         #[graphql(desc = "Maximum Battle Value filter (inclusive).")] bv_max: Option<i32>,
         #[graphql(desc = "Filter to units available to this faction. Lowercase, hyphen-separated slug (e.g. \"clan-wolf\").")] faction_slug: Option<String>,
-        #[graphql(desc = "Filter to units available to any faction of this type.")] faction_type: Option<FactionTypeFilter>,
+        #[graphql(desc = "Filter to units available to any faction of these types. Accepts multiple values.")] faction_types: Option<Vec<FactionTypeFilter>>,
         #[graphql(desc = "Filter to units available in this era.")] era_slug: Option<EraFilter>,
         #[graphql(desc = "Filter to OmniMechs only (true) or non-OmniMechs (false).")] is_omnimech: Option<bool>,
         #[graphql(desc = "Filter by chassis config. One of: Biped, Quad, Tripod, LAM.")] config: Option<String>,
@@ -161,6 +161,12 @@ impl QueryRoot {
         let first = first.unwrap_or(20).clamp(1, 100) as i64;
         let after_cursor = after.as_deref().and_then(decode_cursor);
 
+        let faction_type_strs: Vec<&str> = faction_types
+            .unwrap_or_default()
+            .iter()
+            .map(|f| f.as_db_str())
+            .collect();
+
         let filter = units::UnitFilter {
             name_search: name_search.as_deref(),
             tech_base: tech_base.map(|t| t.as_db_str()),
@@ -170,7 +176,7 @@ impl QueryRoot {
             bv_min,
             bv_max,
             faction_slug: faction_slug.as_deref(),
-            faction_type: faction_type.map(|f| f.as_db_str()),
+            faction_types: &faction_type_strs,
             era_slug: era_slug.map(|e| e.as_db_str()),
             is_omnimech,
             config: config.as_deref(),
