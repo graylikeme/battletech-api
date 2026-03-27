@@ -370,6 +370,7 @@ mod tests {
             engine_type: None,
             has_jump: None,
             role: None,
+            unit_type: None,
         }
     }
 
@@ -474,5 +475,163 @@ mod tests {
             all_ids.windows(2).all(|w| w[0] < w[1]),
             "IDs must be ascending when names are equal"
         );
+    }
+
+    async fn seed_units_with_bv(pool: &PgPool) {
+        sqlx::query(
+            "INSERT INTO unit_chassis (slug, name, unit_type, tech_base, tonnage)
+             VALUES ('mech-chassis', 'Mech', 'mech', 'inner_sphere', 75),
+                    ('vehicle-chassis', 'Vehicle', 'vehicle', 'inner_sphere', 50)",
+        )
+        .execute(pool)
+        .await
+        .unwrap();
+
+        let mech_id: i32 =
+            sqlx::query_scalar("SELECT id FROM unit_chassis WHERE slug = 'mech-chassis'")
+                .fetch_one(pool)
+                .await
+                .unwrap();
+        let vehicle_id: i32 =
+            sqlx::query_scalar("SELECT id FROM unit_chassis WHERE slug = 'vehicle-chassis'")
+                .fetch_one(pool)
+                .await
+                .unwrap();
+
+        // Mechs with various BV values
+        let mechs = [
+            ("atlas-as7-d", "AS7-D", "Atlas AS7-D", Some(1897)),
+            ("hunchback-hbk-4g", "HBK-4G", "Hunchback HBK-4G", Some(1067)),
+            ("locust-lcst-1v", "LCST-1V", "Locust LCST-1V", Some(432)),
+            ("no-bv-mech", "NBV-1", "NoBV NBV-1", None::<i32>),
+        ];
+        for (slug, variant, full_name, bv) in &mechs {
+            sqlx::query(
+                "INSERT INTO units (slug, chassis_id, variant, full_name, tech_base, rules_level, tonnage, bv)
+                 VALUES ($1, $2, $3, $4, 'inner_sphere', 'standard', 75, $5)",
+            )
+            .bind(slug)
+            .bind(mech_id)
+            .bind(variant)
+            .bind(full_name)
+            .bind(bv)
+            .execute(pool)
+            .await
+            .unwrap();
+        }
+
+        // Vehicles with BV
+        let vehicles = [
+            ("demolisher-tank", "DEM", "Demolisher Tank", Some(1202)),
+            ("striker-light-tank", "SLT", "Striker Light Tank", Some(720)),
+        ];
+        for (slug, variant, full_name, bv) in &vehicles {
+            sqlx::query(
+                "INSERT INTO units (slug, chassis_id, variant, full_name, tech_base, rules_level, tonnage, bv)
+                 VALUES ($1, $2, $3, $4, 'inner_sphere', 'standard', 50, $5)",
+            )
+            .bind(slug)
+            .bind(vehicle_id)
+            .bind(variant)
+            .bind(full_name)
+            .bind(bv)
+            .execute(pool)
+            .await
+            .unwrap();
+        }
+    }
+
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn bv_filter_min_max(pool: PgPool) {
+        seed_units_with_bv(&pool).await;
+
+        // bv_min: only units with BV >= 1000
+        let filter = UnitFilter {
+            bv_min: Some(1000),
+            ..empty_filter()
+        };
+        let (rows, total, _) = search(&pool, filter, 100, None).await.unwrap();
+        assert_eq!(total, 3); // Atlas 1897, Hunchback 1067, Demolisher 1202
+        assert!(rows.iter().all(|u| u.bv.unwrap() >= 1000));
+
+        // bv_max: only units with BV <= 1000
+        let filter = UnitFilter {
+            bv_max: Some(1000),
+            ..empty_filter()
+        };
+        let (rows, total, _) = search(&pool, filter, 100, None).await.unwrap();
+        assert_eq!(total, 2); // Locust 432, Striker 720
+        assert!(rows.iter().all(|u| u.bv.unwrap() <= 1000));
+
+        // Combined: 700 <= BV <= 1300
+        let filter = UnitFilter {
+            bv_min: Some(700),
+            bv_max: Some(1300),
+            ..empty_filter()
+        };
+        let (rows, total, _) = search(&pool, filter, 100, None).await.unwrap();
+        assert_eq!(total, 3); // Hunchback 1067, Demolisher 1202, Striker 720
+        assert!(rows.iter().all(|u| {
+            let bv = u.bv.unwrap();
+            bv >= 700 && bv <= 1300
+        }));
+
+        // Units with NULL BV are excluded by bv_min
+        let filter = UnitFilter {
+            bv_min: Some(1),
+            ..empty_filter()
+        };
+        let (_, total, _) = search(&pool, filter, 100, None).await.unwrap();
+        assert_eq!(total, 5, "NULL BV unit must be excluded");
+    }
+
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn unit_type_filter(pool: PgPool) {
+        seed_units_with_bv(&pool).await;
+
+        // Only mechs
+        let filter = UnitFilter {
+            unit_type: Some("mech"),
+            ..empty_filter()
+        };
+        let (_, total, _) = search(&pool, filter, 100, None).await.unwrap();
+        assert_eq!(total, 4, "should return all 4 mech units");
+
+        // Only vehicles
+        let filter = UnitFilter {
+            unit_type: Some("vehicle"),
+            ..empty_filter()
+        };
+        let (_, total, _) = search(&pool, filter, 100, None).await.unwrap();
+        assert_eq!(total, 2, "should return all 2 vehicle units");
+
+        // No filter returns all
+        let (_, total, _) = search(&pool, empty_filter(), 100, None).await.unwrap();
+        assert_eq!(total, 6, "no filter should return all 6 units");
+    }
+
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn combined_bv_and_unit_type_filter(pool: PgPool) {
+        seed_units_with_bv(&pool).await;
+
+        // Mechs with BV >= 1000
+        let filter = UnitFilter {
+            bv_min: Some(1000),
+            unit_type: Some("mech"),
+            ..empty_filter()
+        };
+        let (rows, total, _) = search(&pool, filter, 100, None).await.unwrap();
+        assert_eq!(total, 2); // Atlas 1897, Hunchback 1067
+        assert!(rows.iter().all(|u| u.bv.unwrap() >= 1000));
+
+        // Vehicles with BV <= 1000
+        let filter = UnitFilter {
+            bv_max: Some(1000),
+            unit_type: Some("vehicle"),
+            ..empty_filter()
+        };
+        let (rows, total, _) = search(&pool, filter, 100, None).await.unwrap();
+        assert_eq!(total, 1); // Striker 720
+        assert_eq!(rows[0].slug, "striker-light-tank");
     }
 }
