@@ -148,7 +148,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 ### Filter units by BV range and unit type (roster building)
 ```graphql
 {{
-  units(first: 20, bvMin: 1000, bvMax: 2000, unitType: MECH, eraSlug: CLAN_INVASION, factionSlug: "clan-wolf") {{
+  units(first: 20, bvMin: 1000, bvMax: 2000, unitType: MECH, eraSlug: CLAN_INVASION, factionType: GREAT_HOUSE) {{
     edges {{
       node {{
         slug
