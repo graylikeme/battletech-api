@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
     // ── CORS ──────────────────────────────────────────────────────────────────
     let cors = {
         let origins = cfg.allowed_origins_list();
-        if origins.is_empty() {
+        let base = if origins.is_empty() {
             CorsLayer::new()
         } else if origins.iter().any(|o| o == "*") {
             CorsLayer::new().allow_origin(Any)
@@ -81,7 +81,9 @@ async fn main() -> anyhow::Result<()> {
                 .filter_map(|o| o.parse().ok())
                 .collect();
             CorsLayer::new().allow_origin(AllowOrigin::list(parsed))
-        }
+        };
+        base.allow_headers([header::CONTENT_TYPE])
+            .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
     };
 
     // ── Rate limiting (100 req/min burst per IP) ───────────────────────────────
