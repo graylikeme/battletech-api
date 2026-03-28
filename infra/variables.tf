@@ -92,3 +92,9 @@ variable "api_image" {
   type        = string
   default     = "ghcr.io/graylikeme/battletech-api:latest"
 }
+
+variable "roster_image" {
+  description = "Docker image for the Battledroids Roster Builder"
+  type        = string
+  default     = "ghcr.io/graylikeme/battletech-roster:latest"
+}

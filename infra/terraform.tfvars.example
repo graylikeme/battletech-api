@@ -24,3 +24,4 @@ ingress_ip = "91.186.196.173"  # K8s worker node external IP
 
 # Application
 api_image = "ghcr.io/graylikeme/battletech-api:latest"
+roster_image = "ghcr.io/graylikeme/battletech-roster:latest"

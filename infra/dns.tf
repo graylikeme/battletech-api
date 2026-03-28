@@ -10,3 +10,10 @@ resource "twc_dns_rr" "api" {
   type    = "A"
   value   = var.ingress_ip
 }
+
+resource "twc_dns_rr" "roster" {
+  zone_id = data.twc_dns_zone.main.id
+  name    = "roster"
+  type    = "A"
+  value   = var.ingress_ip
+}

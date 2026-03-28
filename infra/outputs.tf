@@ -40,6 +40,11 @@ output "api_dns_record" {
   value       = "${twc_dns_rr.api.name}.${var.domain} → ${twc_dns_rr.api.value}"
 }
 
+output "roster_dns_record" {
+  description = "DNS A record for roster subdomain"
+  value       = "${twc_dns_rr.roster.name}.${var.domain} → ${twc_dns_rr.roster.value}"
+}
+
 # --- Network ---
 
 output "vpc_id" {
