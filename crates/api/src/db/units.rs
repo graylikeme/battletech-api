@@ -112,8 +112,9 @@ pub async fn search(
         builder.push_bind(tb);
     }
     if let Some(rl) = filter.rules_level {
-        builder.push(" AND u.rules_level::text = ");
+        builder.push(" AND u.rules_level <= ");
         builder.push_bind(rl);
+        builder.push("::rules_level_enum");
     }
     if let Some(min) = filter.tonnage_min {
         builder.push(" AND u.tonnage >= ");
@@ -233,6 +234,7 @@ pub async fn list_chassis(
     pool: &PgPool,
     unit_type: Option<&str>,
     tech_base: Option<&str>,
+    rules_level: Option<&str>,
 ) -> Result<Vec<DbUnitChassis>, AppError> {
     let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
         r#"SELECT id, slug, name, unit_type, tech_base::text AS tech_base,
@@ -247,6 +249,11 @@ pub async fn list_chassis(
     if let Some(tb) = tech_base {
         builder.push(" AND tech_base::text = ");
         builder.push_bind(tb);
+    }
+    if let Some(rl) = rules_level {
+        builder.push(" AND EXISTS (SELECT 1 FROM units u WHERE u.chassis_id = unit_chassis.id AND u.rules_level <= ");
+        builder.push_bind(rl);
+        builder.push("::rules_level_enum)");
     }
 
     builder.push(" ORDER BY name");
@@ -621,6 +628,108 @@ mod tests {
         // No filter returns all
         let (_, total, _) = search(&pool, empty_filter(), 100, None).await.unwrap();
         assert_eq!(total, 6, "no filter should return all 6 units");
+    }
+
+    async fn seed_chassis_with_rules_levels(pool: &PgPool) {
+        sqlx::query(
+            "INSERT INTO unit_chassis (slug, name, unit_type, tech_base, tonnage)
+             VALUES ('atlas-mech', 'Atlas', 'BattleMech', 'inner_sphere', 100),
+                    ('timber-wolf-mech', 'Timber Wolf', 'BattleMech', 'clan', 75),
+                    ('empty-mech', 'Empty', 'BattleMech', 'inner_sphere', 50)",
+        )
+        .execute(pool)
+        .await
+        .unwrap();
+
+        let atlas_id: i32 =
+            sqlx::query_scalar("SELECT id FROM unit_chassis WHERE slug = 'atlas-mech'")
+                .fetch_one(pool)
+                .await
+                .unwrap();
+        let tw_id: i32 =
+            sqlx::query_scalar("SELECT id FROM unit_chassis WHERE slug = 'timber-wolf-mech'")
+                .fetch_one(pool)
+                .await
+                .unwrap();
+        // empty-mech has no units — should never appear in rules_level filtered results
+
+        // Atlas has introductory + standard variants
+        for (slug, variant, full_name, rl) in [
+            ("atlas-as7-d", "AS7-D", "Atlas AS7-D", "introductory"),
+            ("atlas-as7-k", "AS7-K", "Atlas AS7-K", "standard"),
+        ] {
+            sqlx::query(
+                "INSERT INTO units (slug, chassis_id, variant, full_name, tech_base, rules_level, tonnage)
+                 VALUES ($1, $2, $3, $4, 'inner_sphere', $5::rules_level_enum, 100)",
+            )
+            .bind(slug)
+            .bind(atlas_id)
+            .bind(variant)
+            .bind(full_name)
+            .bind(rl)
+            .execute(pool)
+            .await
+            .unwrap();
+        }
+
+        // Timber Wolf has only advanced variants
+        sqlx::query(
+            "INSERT INTO units (slug, chassis_id, variant, full_name, tech_base, rules_level, tonnage)
+             VALUES ('timber-wolf-prime', $1, 'Prime', 'Timber Wolf Prime', 'clan', 'advanced'::rules_level_enum, 75)",
+        )
+        .bind(tw_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn chassis_rules_level_filter_is_cumulative(pool: PgPool) {
+        seed_chassis_with_rules_levels(&pool).await;
+
+        // Introductory — only Atlas (has an introductory variant)
+        let rows = list_chassis(&pool, None, None, Some("introductory")).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].slug, "atlas-mech");
+
+        // Standard — still only Atlas (introductory + standard both <= standard)
+        let rows = list_chassis(&pool, None, None, Some("standard")).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].slug, "atlas-mech");
+
+        // Advanced — both chassis (Atlas intro/standard <= advanced, Timber Wolf advanced <= advanced)
+        let rows = list_chassis(&pool, None, None, Some("advanced")).await.unwrap();
+        assert_eq!(rows.len(), 2);
+        let slugs: Vec<&str> = rows.iter().map(|r| r.slug.as_str()).collect();
+        assert!(slugs.contains(&"atlas-mech"));
+        assert!(slugs.contains(&"timber-wolf-mech"));
+
+        // Experimental — still both (all variants <= experimental)
+        let rows = list_chassis(&pool, None, None, Some("experimental")).await.unwrap();
+        assert_eq!(rows.len(), 2);
+
+        // No filter — all 3 chassis (including empty one with no units)
+        let rows = list_chassis(&pool, None, None, None).await.unwrap();
+        assert_eq!(rows.len(), 3);
+    }
+
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn chassis_rules_level_combined_with_tech_base(pool: PgPool) {
+        seed_chassis_with_rules_levels(&pool).await;
+
+        // Clan + advanced → Timber Wolf (advanced <= advanced)
+        let rows = list_chassis(&pool, None, Some("clan"), Some("advanced")).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].slug, "timber-wolf-mech");
+
+        // Clan + standard → none (Timber Wolf only has advanced, which is > standard)
+        let rows = list_chassis(&pool, None, Some("clan"), Some("standard")).await.unwrap();
+        assert_eq!(rows.len(), 0);
+
+        // Inner Sphere + standard → Atlas (has intro + standard variants, both <= standard)
+        let rows = list_chassis(&pool, None, Some("inner_sphere"), Some("standard")).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].slug, "atlas-mech");
     }
 
     #[sqlx::test(migrations = "../../migrations")]

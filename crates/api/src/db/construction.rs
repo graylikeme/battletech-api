@@ -24,8 +24,9 @@ pub async fn list_engine_types(
         builder.push_bind(tb);
     }
     if let Some(rl) = rules_level {
-        builder.push(" AND rules_level::text = ");
+        builder.push(" AND rules_level <= ");
         builder.push_bind(rl);
+        builder.push("::rules_level_enum");
     }
     builder.push(" ORDER BY name");
     Ok(builder.build_query_as::<DbEngineType>().fetch_all(pool).await?)
@@ -47,8 +48,9 @@ pub async fn list_armor_types(
         builder.push_bind(tb);
     }
     if let Some(rl) = rules_level {
-        builder.push(" AND rules_level::text = ");
+        builder.push(" AND rules_level <= ");
         builder.push_bind(rl);
+        builder.push("::rules_level_enum");
     }
     builder.push(" ORDER BY name");
     Ok(builder.build_query_as::<DbArmorType>().fetch_all(pool).await?)
@@ -70,8 +72,9 @@ pub async fn list_structure_types(
         builder.push_bind(tb);
     }
     if let Some(rl) = rules_level {
-        builder.push(" AND rules_level::text = ");
+        builder.push(" AND rules_level <= ");
         builder.push_bind(rl);
+        builder.push("::rules_level_enum");
     }
     builder.push(" ORDER BY name");
     Ok(builder.build_query_as::<DbStructureType>().fetch_all(pool).await?)
@@ -93,8 +96,9 @@ pub async fn list_heatsink_types(
         builder.push_bind(tb);
     }
     if let Some(rl) = rules_level {
-        builder.push(" AND rules_level::text = ");
+        builder.push(" AND rules_level <= ");
         builder.push_bind(rl);
+        builder.push("::rules_level_enum");
     }
     builder.push(" ORDER BY name");
     Ok(builder.build_query_as::<DbHeatsinkType>().fetch_all(pool).await?)
@@ -111,8 +115,9 @@ pub async fn list_gyro_types(
            FROM gyro_types WHERE TRUE"#,
     );
     if let Some(rl) = rules_level {
-        builder.push(" AND rules_level::text = ");
+        builder.push(" AND rules_level <= ");
         builder.push_bind(rl);
+        builder.push("::rules_level_enum");
     }
     builder.push(" ORDER BY name");
     Ok(builder.build_query_as::<DbGyroType>().fetch_all(pool).await?)
@@ -129,8 +134,9 @@ pub async fn list_cockpit_types(
            FROM cockpit_types WHERE TRUE"#,
     );
     if let Some(rl) = rules_level {
-        builder.push(" AND rules_level::text = ");
+        builder.push(" AND rules_level <= ");
         builder.push_bind(rl);
+        builder.push("::rules_level_enum");
     }
     builder.push(" ORDER BY name");
     Ok(builder.build_query_as::<DbCockpitType>().fetch_all(pool).await?)
@@ -147,8 +153,9 @@ pub async fn list_myomer_types(
            FROM myomer_types WHERE TRUE"#,
     );
     if let Some(rl) = rules_level {
-        builder.push(" AND rules_level::text = ");
+        builder.push(" AND rules_level <= ");
         builder.push_bind(rl);
+        builder.push("::rules_level_enum");
     }
     builder.push(" ORDER BY name");
     Ok(builder.build_query_as::<DbMyomerType>().fetch_all(pool).await?)

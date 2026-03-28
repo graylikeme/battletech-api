@@ -79,8 +79,9 @@ pub async fn search(
         builder.push_bind(tb);
     }
     if let Some(rl) = filter.rules_level {
-        builder.push(" AND rules_level::text = ");
+        builder.push(" AND rules_level <= ");
         builder.push_bind(rl);
+        builder.push("::rules_level_enum");
     }
     if let Some(max_t) = filter.max_tonnage {
         builder.push(" AND tonnage IS NOT NULL AND tonnage <= ");

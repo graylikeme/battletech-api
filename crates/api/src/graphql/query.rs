@@ -142,7 +142,7 @@ impl QueryRoot {
         #[graphql(desc = "Opaque cursor from a previous pageInfo.endCursor. Omit for the first page.")] after: Option<String>,
         #[graphql(desc = "Case-insensitive substring match against the unit's full name.")] name_search: Option<String>,
         #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
-        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+        #[graphql(desc = "Filter by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
         #[graphql(desc = "Minimum tonnage filter (inclusive). Weight in metric tons.")] tonnage_min: Option<f64>,
         #[graphql(desc = "Maximum tonnage filter (inclusive). Weight in metric tons.")] tonnage_max: Option<f64>,
         #[graphql(desc = "Minimum Battle Value filter (inclusive).")] bv_min: Option<i32>,
@@ -233,18 +233,20 @@ impl QueryRoot {
         Ok(row.map(UnitChassisGql))
     }
 
-    /// List all chassis, optionally filtered by unit type and/or technology base.
+    /// List all chassis, optionally filtered by unit type, technology base, and/or rules level.
     async fn all_chassis(
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "Filter by unit type.")] unit_type: Option<UnitTypeFilter>,
         #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
+        #[graphql(desc = "Filter to chassis with at least one variant at or below this rules level (cumulative).")] rules_level: Option<RulesLevelFilter>,
     ) -> Result<Vec<UnitChassisGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let rows = units::list_chassis(
             &state.pool,
             unit_type.map(|u| u.as_db_str()),
             tech_base.map(|t| t.as_db_str()),
+            rules_level.map(|r| r.as_db_str()),
         )
         .await?;
         Ok(rows.into_iter().map(UnitChassisGql).collect())
@@ -272,7 +274,7 @@ impl QueryRoot {
         #[graphql(desc = "Case-insensitive substring match against the equipment name.")] name_search: Option<String>,
         #[graphql(desc = "Filter by equipment category.")] category: Option<EquipmentCategoryFilter>,
         #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
-        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+        #[graphql(desc = "Filter by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
         #[graphql(desc = "Filter to equipment weighing at most this many tons. Only matches items with known tonnage.")] max_tonnage: Option<f64>,
         #[graphql(desc = "Filter to equipment consuming at most this many critical slots. Only matches items with known crits.")] max_crits: Option<i32>,
         #[graphql(desc = "Filter to equipment observed in this location across existing units (e.g. \"right_arm\").")] observed_location: Option<String>,
@@ -397,7 +399,7 @@ impl QueryRoot {
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
-        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+        #[graphql(desc = "Filter by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
     ) -> Result<Vec<EngineTypeGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let rows = construction::list_engine_types(
@@ -414,7 +416,7 @@ impl QueryRoot {
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
-        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+        #[graphql(desc = "Filter by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
     ) -> Result<Vec<ArmorTypeGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let rows = construction::list_armor_types(
@@ -431,7 +433,7 @@ impl QueryRoot {
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
-        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+        #[graphql(desc = "Filter by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
     ) -> Result<Vec<StructureTypeGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let rows = construction::list_structure_types(
@@ -448,7 +450,7 @@ impl QueryRoot {
         &self,
         ctx: &Context<'_>,
         #[graphql(desc = "Filter by technology base.")] tech_base: Option<TechBaseFilter>,
-        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+        #[graphql(desc = "Filter by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
     ) -> Result<Vec<HeatsinkTypeGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let rows = construction::list_heatsink_types(
@@ -464,7 +466,7 @@ impl QueryRoot {
     async fn gyro_types(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+        #[graphql(desc = "Filter by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
     ) -> Result<Vec<GyroTypeGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let rows = construction::list_gyro_types(
@@ -479,7 +481,7 @@ impl QueryRoot {
     async fn cockpit_types(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+        #[graphql(desc = "Filter by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
     ) -> Result<Vec<CockpitTypeGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let rows = construction::list_cockpit_types(
@@ -494,7 +496,7 @@ impl QueryRoot {
     async fn myomer_types(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "Filter by rules level.")] rules_level: Option<RulesLevelFilter>,
+        #[graphql(desc = "Filter by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
     ) -> Result<Vec<MyomerTypeGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
         let rows = construction::list_myomer_types(
