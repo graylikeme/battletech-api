@@ -219,6 +219,16 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
   }
 }
 
+# List chassis filtered by rules level (cumulative)
+{
+  allChassis(unitType: MECH, rulesLevel: STANDARD) {
+    slug
+    name
+    techBase
+    tonnage
+  }
+}
+
 # Equipment with stats and ammo relationships
 {
   equipment(slug: "autocannon-10") {
@@ -269,7 +279,7 @@ The `units` query supports the following filters:
 |--------|------|-------------|
 | `nameSearch` | String | Case-insensitive substring match on `fullName` and `clanName` |
 | `techBase` | String | `inner_sphere`, `clan`, `mixed`, `primitive` |
-| `rulesLevel` | String | `introductory`, `standard`, `advanced`, `experimental`, `unofficial` |
+| `rulesLevel` | Enum | Cumulative rules level filter. E.g. `ADVANCED` includes introductory, standard, and advanced |
 | `tonnageMin` / `tonnageMax` | Float | Weight range in metric tons |
 | `factionSlug` | String | Units available to this faction (e.g. `"clan-wolf"`) |
 | `eraSlug` | String | Units available in this era (e.g. `"clan-invasion"`) |
@@ -286,7 +296,7 @@ The `allEquipment` query supports additional builder-oriented filters:
 | `nameSearch` | String | Case-insensitive substring match on equipment name |
 | `category` | String | Equipment category in snake_case (e.g. `"energy_weapon"`) |
 | `techBase` | String | `inner_sphere`, `clan`, `mixed`, `primitive` |
-| `rulesLevel` | String | `introductory`, `standard`, `advanced`, `experimental`, `unofficial` |
+| `rulesLevel` | Enum | Cumulative rules level filter. E.g. `ADVANCED` includes introductory, standard, and advanced |
 | `maxTonnage` | Float | Equipment weighing at most this many tons |
 | `maxCrits` | Int | Equipment consuming at most this many critical slots |
 | `observedLocation` | String | Equipment observed at this location (e.g. `"right_arm"`) |

@@ -19,7 +19,7 @@ GET {base_url}/schema.graphql
 - **Slugs**: lowercase, hyphen-separated identifiers. Examples: "atlas-as7-d", "clan-wolf", "medium-laser". Chassis slugs include the unit type suffix: "atlas-mech", "demolisher-vehicle"
 - **Years**: in-universe BattleTech timeline years (e.g. 3025, 3055), not real-world dates
 - **Tech base** (enum TechBaseFilter): INNER_SPHERE, CLAN, MIXED, PRIMITIVE
-- **Rules level** (enum RulesLevelFilter): INTRODUCTORY, STANDARD, ADVANCED, EXPERIMENTAL, UNOFFICIAL
+- **Rules level** (enum RulesLevelFilter): INTRODUCTORY, STANDARD, ADVANCED, EXPERIMENTAL, UNOFFICIAL — filter is cumulative: e.g. ADVANCED returns introductory + standard + advanced
 - **Equipment category** (enum EquipmentCategoryFilter): ENERGY_WEAPON, BALLISTIC_WEAPON, MISSILE_WEAPON, PHYSICAL_WEAPON, AMMUNITION, EQUIPMENT, ARMOR, STRUCTURE, ENGINE, GYRO, COCKPIT, ACTUATOR, HEAT_SINK, JUMP_JET, TARGETING_COMPUTER
 - **Unit type** (enum UnitTypeFilter): MECH, VEHICLE, FIGHTER, OTHER
 - **Era** (enum EraFilter): AGE_OF_WAR, STAR_LEAGUE, EARLY_SUCCESSION_WARS, LATE_SUCCESSION_WARS, RENAISSANCE, CLAN_INVASION, CIVIL_WAR, JIHAD, DARK_AGE, IL_CLAN
@@ -400,6 +400,18 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
       bv
       introYear
     }}
+  }}
+}}
+```
+
+### List chassis filtered by rules level and unit type
+```graphql
+{{
+  allChassis(unitType: MECH, rulesLevel: STANDARD) {{
+    slug
+    name
+    techBase
+    tonnage
   }}
 }}
 ```
