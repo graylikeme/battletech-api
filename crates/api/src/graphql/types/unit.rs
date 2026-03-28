@@ -11,7 +11,7 @@ use crate::{
         },
         types::construction::{
             ArmorTypeGql, CockpitTypeGql, EngineTypeGql, GyroTypeGql, HeatsinkTypeGql,
-            MyomerTypeGql, StructureTypeGql,
+            MyomerTypeGql, RulesLevelFilter, StructureTypeGql,
         },
     },
     state::AppState,
@@ -114,20 +114,19 @@ impl UnitChassisGql {
     }
 
     /// All unit variants belonging to this chassis, ordered by variant designation.
+    /// Optionally filtered by maximum rules level (cumulative).
     #[graphql(complexity = 5)]
-    async fn variants(&self, ctx: &Context<'_>) -> Result<Vec<UnitGql>, AppError> {
+    async fn variants(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(desc = "Filter variants by maximum rules level (cumulative). E.g. ADVANCED includes introductory, standard, and advanced.")] rules_level: Option<RulesLevelFilter>,
+    ) -> Result<Vec<UnitGql>, AppError> {
         let state = ctx.data::<AppState>().unwrap();
-        let rows = sqlx::query_as!(
-            DbUnit,
-            r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
-                      u.tech_base::text AS "tech_base!", u.rules_level::text AS "rules_level!",
-                      u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
-                      u.reintro_year, u.source_book, u.description,
-                      u.mul_id, u.role, u.clan_name, NULL::bigint AS total_count
-               FROM units u WHERE u.chassis_id = $1 ORDER BY u.variant"#,
-            self.0.id
+        let rows = crate::db::units::get_variants_by_chassis(
+            &state.pool,
+            self.0.id,
+            rules_level.map(|r| r.as_db_str()),
         )
-        .fetch_all(&state.pool)
         .await?;
         Ok(rows.into_iter().map(UnitGql).collect())
     }

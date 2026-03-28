@@ -204,15 +204,16 @@ The server starts on `http://localhost:8080`. In debug builds, GraphiQL is avail
   }
 }
 
-# Chassis with all variants
+# Chassis with variants filtered by rules level
 {
   chassis(slug: "atlas-mech") {
     name
     unitType
     tonnage
-    variants {
+    variants(rulesLevel: STANDARD) {
       slug
       fullName
+      rulesLevel
       bv
       introYear
     }

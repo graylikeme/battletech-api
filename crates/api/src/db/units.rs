@@ -265,6 +265,33 @@ pub async fn list_chassis(
     Ok(rows)
 }
 
+pub async fn get_variants_by_chassis(
+    pool: &PgPool,
+    chassis_id: i32,
+    rules_level: Option<&str>,
+) -> Result<Vec<DbUnit>, AppError> {
+    let mut builder = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+        r#"SELECT u.id, u.slug, u.chassis_id, u.variant, u.full_name,
+                  u.tech_base::text AS tech_base, u.rules_level::text AS rules_level,
+                  u.tonnage, u.bv, u.cost, u.intro_year, u.extinction_year,
+                  u.reintro_year, u.source_book, u.description,
+                  u.mul_id, u.role, u.clan_name, NULL::bigint AS total_count
+           FROM units u WHERE u.chassis_id = "#,
+    );
+    builder.push_bind(chassis_id);
+    if let Some(rl) = rules_level {
+        builder.push(" AND u.rules_level <= ");
+        builder.push_bind(rl);
+        builder.push("::rules_level_enum");
+    }
+    builder.push(" ORDER BY u.variant");
+    let rows = builder
+        .build_query_as::<DbUnit>()
+        .fetch_all(pool)
+        .await?;
+    Ok(rows)
+}
+
 pub async fn get_locations(pool: &PgPool, unit_id: i32) -> Result<Vec<DbLocation>, AppError> {
     let rows = sqlx::query_as!(
         DbLocation,
@@ -730,6 +757,46 @@ mod tests {
         let rows = list_chassis(&pool, None, Some("inner_sphere"), Some("standard")).await.unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].slug, "atlas-mech");
+    }
+
+    #[sqlx::test(migrations = "../../migrations")]
+    async fn variants_rules_level_filter_is_cumulative(pool: PgPool) {
+        seed_chassis_with_rules_levels(&pool).await;
+
+        let atlas_id: i32 =
+            sqlx::query_scalar("SELECT id FROM unit_chassis WHERE slug = 'atlas-mech'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let tw_id: i32 =
+            sqlx::query_scalar("SELECT id FROM unit_chassis WHERE slug = 'timber-wolf-mech'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+
+        // Atlas: has introductory (AS7-D) + standard (AS7-K)
+        // No filter — returns both
+        let rows = get_variants_by_chassis(&pool, atlas_id, None).await.unwrap();
+        assert_eq!(rows.len(), 2);
+
+        // Introductory — only AS7-D
+        let rows = get_variants_by_chassis(&pool, atlas_id, Some("introductory")).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].slug, "atlas-as7-d");
+
+        // Standard — both (introductory + standard <= standard)
+        let rows = get_variants_by_chassis(&pool, atlas_id, Some("standard")).await.unwrap();
+        assert_eq!(rows.len(), 2);
+
+        // Timber Wolf: only advanced (Prime)
+        // Standard — none (advanced > standard)
+        let rows = get_variants_by_chassis(&pool, tw_id, Some("standard")).await.unwrap();
+        assert_eq!(rows.len(), 0);
+
+        // Advanced — returns Prime
+        let rows = get_variants_by_chassis(&pool, tw_id, Some("advanced")).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].slug, "timber-wolf-prime");
     }
 
     #[sqlx::test(migrations = "../../migrations")]

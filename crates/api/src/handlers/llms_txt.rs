@@ -384,7 +384,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 }}
 ```
 
-### Get chassis with all its variants
+### Get chassis with variants filtered by rules level
 ```graphql
 {{
   chassis(slug: "atlas-mech") {{
@@ -392,11 +392,12 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
     unitType
     techBase
     tonnage
-    variants {{
+    variants(rulesLevel: STANDARD) {{
       slug
       variant
       fullName
       techBase
+      rulesLevel
       bv
       introYear
     }}
