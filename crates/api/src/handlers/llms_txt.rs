@@ -33,6 +33,7 @@ GET {base_url}/schema.graphql
 - **Crits**: number of critical hit slots an equipment item occupies
 - **Slots**: 1-indexed critical slot positions within a location. For a 5-crit weapon starting at slot 4: `[4, 5, 6, 7, 8]`. Null for non-mech units or legacy data. Slot numbers may have gaps where structural components (actuators, engine, gyro) occupy slots
 - **Shots per ton** (`shotsPerTon`): number of rounds of ammunition per ton of ammo. Standard BattleTech values (e.g. AC/20 ammo = 5, SRM-2 ammo = 50). Null for non-ammo equipment
+- **Ammo linkage**: ammunition items are linked to their parent weapon via `ammoFor` (ammo → weapon) and `ammoTypes` (weapon → compatible ammo list). Covers ~930 of ~1,290 ammo types (capital ship weapons excluded)
 - **Resolved component types**: `mechData` provides both raw MegaMek strings (e.g. `engineTypeRaw`) and resolved references (e.g. `engine`) with full construction properties (weight multipliers, crit slots, etc.)
 - **Construction reference**: prescriptive data for unit builders — component types with weights, crit slots, and rules; engine weight table; internal structure table
 
@@ -311,14 +312,26 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
 ### Find ammo types for a weapon
 ```graphql
 {{
-  equipment(slug: "autocannon-10") {{
+  equipment(slug: "autocannon-20") {{
     name
     ammoTypes {{
       slug
       name
-      tonnage
-      bv
       shotsPerTon
+    }}
+  }}
+}}
+```
+
+### Look up which weapon an ammo type belongs to
+```graphql
+{{
+  equipment(slug: "is-ammo-ac-20") {{
+    name
+    shotsPerTon
+    ammoFor {{
+      slug
+      name
     }}
   }}
 }}
