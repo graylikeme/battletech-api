@@ -47,7 +47,7 @@ impl Loader<i32> for AmmoForLoader {
                       tonnage, crits, damage, heat,
                       range_min, range_short, range_medium, range_long, bv, intro_year,
                       source_book, description,
-                      observed_locations, ammo_for_id, stats_source,
+                      observed_locations, ammo_for_id, stats_source, shots_per_ton,
                       NULL::bigint AS total_count
                FROM equipment WHERE id = ANY($1)"#,
         )
@@ -79,7 +79,7 @@ impl Loader<i32> for AmmoTypesLoader {
                       tonnage, crits, damage, heat,
                       range_min, range_short, range_medium, range_long, bv, intro_year,
                       source_book, description,
-                      observed_locations, ammo_for_id, stats_source,
+                      observed_locations, ammo_for_id, stats_source, shots_per_ton,
                       NULL::bigint AS total_count
                FROM equipment WHERE ammo_for_id = ANY($1)
                ORDER BY name"#,

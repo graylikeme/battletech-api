@@ -10,7 +10,7 @@ pub async fn get_by_slug(pool: &PgPool, slug: &str) -> Result<Option<DbEquipment
                   tonnage, crits, damage, heat,
                   range_min, range_short, range_medium, range_long, bv, intro_year,
                   source_book, description,
-                  observed_locations, ammo_for_id, stats_source,
+                  observed_locations, ammo_for_id, stats_source, shots_per_ton,
                   NULL::bigint AS total_count
            FROM equipment WHERE slug = $1"#,
     )
@@ -60,7 +60,7 @@ pub async fn search(
                   rules_level::text AS rules_level, tonnage, crits, damage, heat,
                   range_min, range_short, range_medium, range_long, bv, intro_year,
                   source_book, description,
-                  observed_locations, ammo_for_id, stats_source,
+                  observed_locations, ammo_for_id, stats_source, shots_per_ton,
                   COUNT(*) OVER() AS total_count
            FROM equipment WHERE TRUE"#,
     );

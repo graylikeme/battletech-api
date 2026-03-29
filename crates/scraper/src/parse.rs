@@ -51,6 +51,9 @@ pub struct ParsedLoadoutEntry {
     pub location: Option<&'static str>,
     pub quantity: i32,
     pub is_rear: bool,
+    /// 1-indexed critical slot positions this equipment occupies within its location.
+    /// Populated from MTF location sections; None for BLK-sourced entries.
+    pub slots: Option<Vec<i32>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -167,8 +170,11 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
     // Weapons loadout
     let mut loadout: Vec<ParsedLoadoutEntry> = Vec::new();
 
-    // Location section parsing
+    // Location section parsing — track critical slot positions
     let mut current_loc: Option<&'static str> = None;
+    let mut slot_counter: i32 = 0;
+    // Pending equipment being accumulated across consecutive identical lines
+    let mut pending: Option<(String, bool, i32, i32)> = None; // (equip, is_rear, start_slot, end_slot)
 
     for raw_line in content.lines() {
         let line = raw_line.trim();
@@ -182,25 +188,39 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
         if !line.contains(':') {
             // Could be a continuation line in a location section
             if let Some(loc) = current_loc {
+                slot_counter += 1;
                 let equip = line.trim_end_matches(" (R)").trim().to_string();
                 let is_rear = line.ends_with("(R)");
-                if !equip.is_empty()
-                    && equip != "-Empty-"
-                    && !is_structural_component(&equip)
-                {
-                    // Find if already in loadout at same loc+rear
-                    if let Some(entry) = loadout.iter_mut().find(|e| {
-                        e.equipment == equip && e.location == Some(loc) && e.is_rear == is_rear
-                    }) {
-                        entry.quantity += 1;
-                    } else {
+
+                if equip.is_empty() || equip == "-Empty-" || is_structural_component(&equip) {
+                    // Flush pending — structural/empty breaks consecutive runs
+                    if let Some((p_equip, p_rear, p_start, p_end)) = pending.take() {
                         loadout.push(ParsedLoadoutEntry {
-                            equipment: equip,
+                            equipment: p_equip,
                             location: Some(loc),
                             quantity: 1,
-                            is_rear,
+                            is_rear: p_rear,
+                            slots: Some((p_start..=p_end).collect()),
                         });
                     }
+                } else if let Some((ref p_equip, p_rear, _, ref mut p_end)) = pending {
+                    if *p_equip == equip && p_rear == is_rear {
+                        // Extend consecutive run
+                        *p_end = slot_counter;
+                    } else {
+                        // Flush previous, start new
+                        let (p_equip, p_rear, p_start, p_end) = pending.take().unwrap();
+                        loadout.push(ParsedLoadoutEntry {
+                            equipment: p_equip,
+                            location: Some(loc),
+                            quantity: 1,
+                            is_rear: p_rear,
+                            slots: Some((p_start..=p_end).collect()),
+                        });
+                        pending = Some((equip, is_rear, slot_counter, slot_counter));
+                    }
+                } else {
+                    pending = Some((equip, is_rear, slot_counter, slot_counter));
                 }
             }
             continue;
@@ -213,10 +233,35 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
 
         // Location section headers end with ":" and have a canonical name
         if val.is_empty() {
+            // Flush pending from previous location
+            if let Some((p_equip, p_rear, p_start, p_end)) = pending.take() {
+                if let Some(loc) = current_loc {
+                    loadout.push(ParsedLoadoutEntry {
+                        equipment: p_equip,
+                        location: Some(loc),
+                        quantity: 1,
+                        is_rear: p_rear,
+                        slots: Some((p_start..=p_end).collect()),
+                    });
+                }
+            }
             current_loc = mtf_location_header(&key);
+            slot_counter = 0;
             continue;
         }
 
+        // Flush pending when we see a key:value pair
+        if let Some((p_equip, p_rear, p_start, p_end)) = pending.take() {
+            if let Some(loc) = current_loc {
+                loadout.push(ParsedLoadoutEntry {
+                    equipment: p_equip,
+                    location: Some(loc),
+                    quantity: 1,
+                    is_rear: p_rear,
+                    slots: Some((p_start..=p_end).collect()),
+                });
+            }
+        }
         current_loc = None; // reset when we see a key:value pair
 
         match key.as_str() {
@@ -308,31 +353,48 @@ pub fn parse_mtf(content: &str) -> Option<ParsedUnit> {
 
     }
 
-    // Second pass for weapons lines (they follow "Weapons:N" with no leading key)
-    let mut reading_weapons = false;
-    for raw_line in content.lines() {
-        let line = raw_line.trim();
-        if line.starts_with('#') || line.is_empty() {
-            continue;
+    // Flush any remaining pending entry after end of file
+    if let Some((p_equip, p_rear, p_start, p_end)) = pending.take() {
+        if let Some(loc) = current_loc {
+            loadout.push(ParsedLoadoutEntry {
+                equipment: p_equip,
+                location: Some(loc),
+                quantity: 1,
+                is_rear: p_rear,
+                slots: Some((p_start..=p_end).collect()),
+            });
         }
-        let lower = line.to_lowercase();
-        if lower.starts_with("weapons:") {
-            reading_weapons = true;
-            continue;
-        }
-        if reading_weapons {
-            // Weapon lines: "Medium Laser, Left Arm" or "2 LRM 20, Left Torso"
-            // Stop at next key:value pair or location header
-            if line.contains(':') && !line.contains(',') {
-                reading_weapons = false;
+    }
+
+    // Second pass for weapons lines — only if the location sections didn't produce
+    // any slot-based entries (which would mean the file has proper critical slot tables)
+    let has_slot_entries = loadout.iter().any(|e| e.slots.is_some());
+    if !has_slot_entries {
+        let mut reading_weapons = false;
+        for raw_line in content.lines() {
+            let line = raw_line.trim();
+            if line.starts_with('#') || line.is_empty() {
                 continue;
             }
-            if !line.contains(',') {
-                // Might be location header with no value, stop
-                reading_weapons = false;
+            let lower = line.to_lowercase();
+            if lower.starts_with("weapons:") {
+                reading_weapons = true;
                 continue;
             }
-            parse_weapon_line(line, &mut loadout);
+            if reading_weapons {
+                // Weapon lines: "Medium Laser, Left Arm" or "2 LRM 20, Left Torso"
+                // Stop at next key:value pair or location header
+                if line.contains(':') && !line.contains(',') {
+                    reading_weapons = false;
+                    continue;
+                }
+                if !line.contains(',') {
+                    // Might be location header with no value, stop
+                    reading_weapons = false;
+                    continue;
+                }
+                parse_weapon_line(line, &mut loadout);
+            }
         }
     }
 
@@ -421,6 +483,7 @@ fn parse_weapon_line(line: &str, loadout: &mut Vec<ParsedLoadoutEntry>) {
                 location: loc,
                 quantity: 1,
                 is_rear,
+                slots: None,
             });
         }
     }
@@ -604,6 +667,7 @@ pub fn parse_blk(content: &str, default_unit_type: UnitType) -> Option<ParsedUni
                 location: loc,
                 quantity: 1,
                 is_rear: false,
+                slots: None,
             });
         }
     }
@@ -644,15 +708,19 @@ fn blk_location(loc: &str) -> Option<&'static str> {
 fn dedup_loadout(mut entries: Vec<ParsedLoadoutEntry>) -> Vec<ParsedLoadoutEntry> {
     let mut out: Vec<ParsedLoadoutEntry> = Vec::new();
     for entry in entries.drain(..) {
-        if let Some(existing) = out.iter_mut().find(|e| {
-            e.equipment == entry.equipment
-                && e.location == entry.location
-                && e.is_rear == entry.is_rear
-        }) {
-            existing.quantity += entry.quantity;
-        } else {
-            out.push(entry);
+        // Only merge entries that both have no slot data
+        if entry.slots.is_none() {
+            if let Some(existing) = out.iter_mut().find(|e| {
+                e.slots.is_none()
+                    && e.equipment == entry.equipment
+                    && e.location == entry.location
+                    && e.is_rear == entry.is_rear
+            }) {
+                existing.quantity += entry.quantity;
+                continue;
+            }
         }
+        out.push(entry);
     }
     out
 }

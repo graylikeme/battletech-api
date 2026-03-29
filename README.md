@@ -5,7 +5,7 @@ A GraphQL API serving BattleTech unit, equipment, faction, and era data sourced 
 ## Stack
 
 - **API:** Rust · axum 0.8 · async-graphql 7 · sqlx 0.8 · PostgreSQL 16
-- **Scraper:** imports from MegaMek unit files (MTF + BLK formats), the Master Unit List (BV, roles, availability, clan names), and equipment stats seed data
+- **Scraper:** imports from MegaMek unit files (MTF + BLK formats) including per-slot critical hit tables, the Master Unit List (BV, roles, availability, clan names), and equipment stats seed data (including ammo shots-per-ton)
 - **Ops:** Prometheus metrics at `/metrics`, Dockerfile (musl/Alpine), IP rate limiting
 
 ## Quick start

@@ -19,6 +19,7 @@ pub struct EquipmentStats {
     pub range_medium: Option<i32>,
     pub range_long: Option<i32>,
     pub bv: Option<i32>,
+    pub shots_per_ton: Option<i32>,
 }
 
 /// Build a mapping from clean JSON slugs to MegaMek DB slugs.
@@ -84,6 +85,28 @@ fn slug_aliases() -> HashMap<&'static str, &'static str> {
         ("artemis-iv-fcs",          "isartemisiv"),
         ("c3-master-computer",      "isc3mastercomputer"),
         ("c3-slave-unit",           "isc3slaveunit"),
+        // Ammo aliases (clean JSON slug → MegaMek DB slug)
+        ("is-heavy-gauss-ammo",       "isheavygauss-ammo"),
+        ("is-ams-ammo",              "isams-ammo"),
+        ("is-narc-ammo",             "is-ammo-inarc"),
+        ("is-arrow-iv-ammo",         "isarrowivammo"),
+        ("is-rotary-ac-5-ammo",      "isrotaryac5-ammo"),
+        ("is-streak-srm-2-ammo",     "isstreaksrm2-ammo"),
+        ("is-streak-srm-4-ammo",     "isstreaksrm4-ammo"),
+        ("is-streak-srm-6-ammo",     "isstreaksrm6-ammo"),
+        ("is-mrm-10-ammo",           "ismrm10-ammo"),
+        ("is-mrm-20-ammo",           "ismrm20-ammo"),
+        ("is-mrm-30-ammo",           "ismrm30-ammo"),
+        ("is-mrm-40-ammo",           "ismrm40-ammo"),
+        ("clan-streak-srm-2-ammo",   "clan-streak-srm-2-ammo"), // already matches
+        ("clan-streak-srm-4-ammo",   "clan-streak-srm-4-ammo"), // already matches
+        ("clan-streak-srm-6-ammo",   "clan-streak-srm-6-ammo"), // already matches
+        ("clan-atm-3-ammo",          "clatm3-ammo"),
+        ("clan-atm-6-ammo",          "clatm6-ammo"),
+        ("clan-atm-9-ammo",          "clatm9-ammo"),
+        ("clan-atm-12-ammo",         "clatm12-ammo"),
+        ("clan-ams-ammo",            "clams-ammo"),
+        ("clan-arrow-iv-ammo",       "clarrowivammo"),
     ])
 }
 
@@ -145,6 +168,7 @@ pub async fn run(file: &Path, database_url: &str, pool_size: u32, force: bool) -
                      range_medium = $8,
                      range_long   = $9,
                      bv           = $10,
+                     shots_per_ton = $11,
                      stats_source = 'seed',
                      stats_updated_at = now()
                    WHERE id = $1"#,
@@ -159,6 +183,7 @@ pub async fn run(file: &Path, database_url: &str, pool_size: u32, force: bool) -
             .bind(entry.range_medium)
             .bind(entry.range_long)
             .bind(entry.bv)
+            .bind(entry.shots_per_ton)
             .execute(&pool)
             .await?;
 
@@ -180,12 +205,14 @@ pub async fn run(file: &Path, database_url: &str, pool_size: u32, force: bool) -
                      range_medium = COALESCE(range_medium, $8),
                      range_long   = COALESCE(range_long, $9),
                      bv           = COALESCE(bv, $10),
+                     shots_per_ton = COALESCE(shots_per_ton, $11),
                      stats_source = COALESCE(stats_source, 'seed'),
                      stats_updated_at = COALESCE(stats_updated_at, now())
                    WHERE id = $1
                      AND (tonnage IS NULL OR crits IS NULL OR damage IS NULL
                           OR heat IS NULL OR range_min IS NULL OR range_short IS NULL
-                          OR range_medium IS NULL OR range_long IS NULL OR bv IS NULL)"#,
+                          OR range_medium IS NULL OR range_long IS NULL OR bv IS NULL
+                          OR shots_per_ton IS NULL)"#,
             )
             .bind(eq_id)
             .bind(entry.tonnage.map(|t| Decimal::try_from(t).unwrap_or_default()))
@@ -197,6 +224,7 @@ pub async fn run(file: &Path, database_url: &str, pool_size: u32, force: bool) -
             .bind(entry.range_medium)
             .bind(entry.range_long)
             .bind(entry.bv)
+            .bind(entry.shots_per_ton)
             .execute(&pool)
             .await?;
 

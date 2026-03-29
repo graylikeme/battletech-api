@@ -115,6 +115,11 @@ impl EquipmentGql {
         self.0.stats_source.as_deref()
     }
 
+    /// Number of rounds of ammunition per ton. Null for non-ammo equipment.
+    async fn shots_per_ton(&self) -> Option<i32> {
+        self.0.shots_per_ton
+    }
+
     /// The weapon this ammo is compatible with. Null for non-ammo equipment.
     #[graphql(complexity = 3)]
     async fn ammo_for(&self, ctx: &Context<'_>) -> Result<Option<EquipmentGql>, AppError> {

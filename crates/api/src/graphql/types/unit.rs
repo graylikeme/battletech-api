@@ -64,6 +64,10 @@ pub struct LoadoutEntryGql {
     pub is_rear_facing: bool,
     /// Additional notes about this loadout entry, if any.
     pub notes: Option<String>,
+    /// 1-indexed critical slot positions this equipment occupies within its location.
+    /// For example, a 5-crit LRM 20 starting at slot 4 would be [4, 5, 6, 7, 8].
+    /// Null for non-mech units or legacy data without slot information.
+    pub slots: Option<Vec<i32>>,
 }
 
 // ── Unit Chassis ───────────────────────────────────────────────────────────
@@ -452,6 +456,7 @@ impl UnitGql {
                 quantity: e.quantity,
                 is_rear_facing: e.is_rear_facing,
                 notes: e.notes,
+                slots: e.slots,
             })
             .collect())
     }

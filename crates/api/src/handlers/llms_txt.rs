@@ -31,6 +31,8 @@ GET {base_url}/schema.graphql
 - **Tonnage**: weight in metric tons (20–100 for mechs, up to 500,000+ for jumpships)
 - **Range values**: measured in tabletop hexes
 - **Crits**: number of critical hit slots an equipment item occupies
+- **Slots**: 1-indexed critical slot positions within a location. For a 5-crit weapon starting at slot 4: `[4, 5, 6, 7, 8]`. Null for non-mech units or legacy data. Slot numbers may have gaps where structural components (actuators, engine, gyro) occupy slots
+- **Shots per ton** (`shotsPerTon`): number of rounds of ammunition per ton of ammo. Standard BattleTech values (e.g. AC/20 ammo = 5, SRM-2 ammo = 50). Null for non-ammo equipment
 - **Resolved component types**: `mechData` provides both raw MegaMek strings (e.g. `engineTypeRaw`) and resolved references (e.g. `engine`) with full construction properties (weight multipliers, crit slots, etc.)
 - **Construction reference**: prescriptive data for unit builders — component types with weights, crit slots, and rules; engine weight table; internal structure table
 
@@ -129,6 +131,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
       location
       quantity
       isRearFacing
+      slots
     }}
     locations {{
       location
@@ -315,6 +318,7 @@ To paginate: pass `endCursor` from the previous response as `after` in the next 
       name
       tonnage
       bv
+      shotsPerTon
     }}
   }}
 }}

@@ -233,8 +233,8 @@ pub async fn replace_loadout(
 
         sqlx::query(
             r#"
-            INSERT INTO unit_loadout (unit_id, equipment_id, location, quantity, is_rear_facing)
-            VALUES ($1, $2, $3::location_name_enum, $4, $5)
+            INSERT INTO unit_loadout (unit_id, equipment_id, location, quantity, is_rear_facing, slots)
+            VALUES ($1, $2, $3::location_name_enum, $4, $5, $6)
             "#,
         )
         .bind(unit_id)
@@ -242,6 +242,7 @@ pub async fn replace_loadout(
         .bind(entry.location)   // Option<&'static str> → cast to enum in SQL
         .bind(entry.quantity)
         .bind(entry.is_rear)    // is_rear_facing column
+        .bind(entry.slots.as_deref()) // Option<&[i32]> → INTEGER[]
         .execute(pool)
         .await
         .with_context(|| format!("insert loadout entry {} for unit {unit_id}", entry.equipment))?;

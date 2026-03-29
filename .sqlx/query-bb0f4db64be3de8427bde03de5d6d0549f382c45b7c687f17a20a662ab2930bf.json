@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT ul.id, ul.unit_id, ul.equipment_id,\n                  ul.location::text AS location,\n                  ul.quantity, ul.is_rear_facing, ul.notes,\n                  e.slug AS equipment_slug, e.name AS equipment_name\n           FROM unit_loadout ul\n           JOIN equipment e ON e.id = ul.equipment_id\n           WHERE ul.unit_id = $1\n           ORDER BY ul.id",
+  "query": "SELECT ul.id, ul.unit_id, ul.equipment_id,\n                  ul.location::text AS location,\n                  ul.quantity, ul.is_rear_facing, ul.notes, ul.slots,\n                  e.slug AS equipment_slug, e.name AS equipment_name\n           FROM unit_loadout ul\n           JOIN equipment e ON e.id = ul.equipment_id\n           WHERE ul.unit_id = $1\n           ORDER BY ul.id",
   "describe": {
     "columns": [
       {
@@ -40,11 +40,16 @@
       },
       {
         "ordinal": 7,
+        "name": "slots",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 8,
         "name": "equipment_slug",
         "type_info": "Text"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "equipment_name",
         "type_info": "Text"
       }
@@ -62,9 +67,10 @@
       false,
       false,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "555c8ed119971815050920c16e49c96705dd670443c50fc31ac4d12760504db5"
+  "hash": "bb0f4db64be3de8427bde03de5d6d0549f382c45b7c687f17a20a662ab2930bf"
 }

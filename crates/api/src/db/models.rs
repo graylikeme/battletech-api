@@ -113,6 +113,7 @@ pub struct DbEquipment {
     pub observed_locations: Option<Vec<String>>,
     pub ammo_for_id: Option<i32>,
     pub stats_source: Option<String>,
+    pub shots_per_ton: Option<i32>,
     pub total_count: Option<i64>,
 }
 
@@ -135,6 +136,7 @@ pub struct DbLoadoutEntry {
     pub quantity: i32,
     pub is_rear_facing: bool,
     pub notes: Option<String>,
+    pub slots: Option<Vec<i32>>,
     // Joined from equipment
     pub equipment_slug: String,
     pub equipment_name: String,

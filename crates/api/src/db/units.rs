@@ -310,7 +310,7 @@ pub async fn get_loadout(pool: &PgPool, unit_id: i32) -> Result<Vec<DbLoadoutEnt
         DbLoadoutEntry,
         r#"SELECT ul.id, ul.unit_id, ul.equipment_id,
                   ul.location::text AS location,
-                  ul.quantity, ul.is_rear_facing, ul.notes,
+                  ul.quantity, ul.is_rear_facing, ul.notes, ul.slots,
                   e.slug AS equipment_slug, e.name AS equipment_name
            FROM unit_loadout ul
            JOIN equipment e ON e.id = ul.equipment_id
