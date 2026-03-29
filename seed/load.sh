@@ -32,6 +32,9 @@ else
   exit 1
 fi
 
+echo "==> Dropping circular FK (equipment.ammo_for_id)..."
+psql "$DB_URL" -q -c "ALTER TABLE equipment DROP CONSTRAINT IF EXISTS equipment_ammo_for_id_fkey;"
+
 echo "==> Truncating tables..."
 psql "$DB_URL" -q -c "
   TRUNCATE
@@ -70,6 +73,9 @@ psql "$DB_URL" -q -c "
 
 echo "==> Loading seed data..."
 gunzip -c "$DUMP_FILE" | psql "$DB_URL" -q -o /dev/null
+
+echo "==> Re-adding circular FK..."
+psql "$DB_URL" -q -c "ALTER TABLE equipment ADD CONSTRAINT equipment_ammo_for_id_fkey FOREIGN KEY (ammo_for_id) REFERENCES equipment(id) ON DELETE SET NULL;"
 
 echo "==> Resetting sequences..."
 psql "$DB_URL" -q -o /dev/null -c "
