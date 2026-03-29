@@ -108,29 +108,35 @@ pub enum RulesLevel {
 }
 
 impl RulesLevel {
-    /// Parse from the integer used in MTF `rules level:N`
+    /// Parse from the integer used in MTF `rules level:N` (MegaMek uses 1-based numbering)
     pub fn from_int(n: i32) -> Self {
         match n {
-            0 => RulesLevel::Introductory,
-            1 => RulesLevel::Standard,
-            2 => RulesLevel::Advanced,
-            3 => RulesLevel::Experimental,
-            4 | 5 => RulesLevel::Unofficial,
+            1 => RulesLevel::Introductory,
+            2 => RulesLevel::Standard,
+            3 => RulesLevel::Advanced,
+            4 => RulesLevel::Experimental,
+            5 => RulesLevel::Unofficial,
             _ => RulesLevel::Standard,
         }
     }
 
-    /// Parse from the BLK `<type>` string like "IS Level 2"
+    /// Parse from the BLK `<type>` string like "IS Level 2" or "Mixed (IS Chassis) Advanced"
     pub fn from_type_str(s: &str) -> Self {
         let lower = s.to_lowercase();
         if lower.contains("level 1") {
-            RulesLevel::Standard
+            RulesLevel::Introductory
         } else if lower.contains("level 2") {
-            RulesLevel::Advanced
+            RulesLevel::Standard
         } else if lower.contains("level 3") {
+            RulesLevel::Advanced
+        } else if lower.contains("level 4") {
             RulesLevel::Experimental
-        } else if lower.contains("unofficial") {
+        } else if lower.contains("level 5") || lower.contains("unofficial") {
             RulesLevel::Unofficial
+        } else if lower.contains("experimental") {
+            RulesLevel::Experimental
+        } else if lower.contains("advanced") {
+            RulesLevel::Advanced
         } else {
             RulesLevel::Standard
         }
@@ -812,5 +818,64 @@ pub fn equipment_tech_base(name: &str) -> &'static str {
         "clan"
     } else {
         "inner_sphere"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_int_maps_megamek_1based_values() {
+        assert_eq!(RulesLevel::from_int(1), RulesLevel::Introductory);
+        assert_eq!(RulesLevel::from_int(2), RulesLevel::Standard);
+        assert_eq!(RulesLevel::from_int(3), RulesLevel::Advanced);
+        assert_eq!(RulesLevel::from_int(4), RulesLevel::Experimental);
+        assert_eq!(RulesLevel::from_int(5), RulesLevel::Unofficial);
+    }
+
+    #[test]
+    fn from_int_defaults_to_standard() {
+        assert_eq!(RulesLevel::from_int(0), RulesLevel::Standard);
+        assert_eq!(RulesLevel::from_int(6), RulesLevel::Standard);
+        assert_eq!(RulesLevel::from_int(-1), RulesLevel::Standard);
+    }
+
+    #[test]
+    fn from_type_str_is_levels() {
+        assert_eq!(RulesLevel::from_type_str("IS Level 1"), RulesLevel::Introductory);
+        assert_eq!(RulesLevel::from_type_str("IS Level 2"), RulesLevel::Standard);
+        assert_eq!(RulesLevel::from_type_str("IS Level 3"), RulesLevel::Advanced);
+        assert_eq!(RulesLevel::from_type_str("IS Level 4"), RulesLevel::Experimental);
+        assert_eq!(RulesLevel::from_type_str("IS Level 5"), RulesLevel::Unofficial);
+    }
+
+    #[test]
+    fn from_type_str_clan_levels() {
+        assert_eq!(RulesLevel::from_type_str("Clan Level 2"), RulesLevel::Standard);
+        assert_eq!(RulesLevel::from_type_str("Clan Level 3"), RulesLevel::Advanced);
+        assert_eq!(RulesLevel::from_type_str("Clan Level 4"), RulesLevel::Experimental);
+        assert_eq!(RulesLevel::from_type_str("Clan Level 5"), RulesLevel::Unofficial);
+    }
+
+    #[test]
+    fn from_type_str_mixed_with_keywords() {
+        assert_eq!(RulesLevel::from_type_str("Mixed (IS Chassis) Advanced"), RulesLevel::Advanced);
+        assert_eq!(RulesLevel::from_type_str("Mixed (IS Chassis) Experimental"), RulesLevel::Experimental);
+        assert_eq!(RulesLevel::from_type_str("Mixed (Clan Chassis) Advanced"), RulesLevel::Advanced);
+        assert_eq!(RulesLevel::from_type_str("Mixed (Clan Chassis) Experimental"), RulesLevel::Experimental);
+    }
+
+    #[test]
+    fn from_type_str_defaults_to_standard() {
+        assert_eq!(RulesLevel::from_type_str("Mixed (IS Chassis)"), RulesLevel::Standard);
+        assert_eq!(RulesLevel::from_type_str("Mixed (Clan Chassis)"), RulesLevel::Standard);
+        assert_eq!(RulesLevel::from_type_str("IS"), RulesLevel::Standard);
+        assert_eq!(RulesLevel::from_type_str("Clan"), RulesLevel::Standard);
+    }
+
+    #[test]
+    fn from_type_str_unofficial() {
+        assert_eq!(RulesLevel::from_type_str("IS Unofficial"), RulesLevel::Unofficial);
     }
 }
