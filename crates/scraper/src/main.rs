@@ -1,3 +1,4 @@
+mod ammo_link;
 mod db;
 mod equipment_seed;
 mod mul;
@@ -89,6 +90,17 @@ enum Command {
         force: bool,
     },
 
+    /// Link ammunition to parent weapons by matching ammo names to weapon names.
+    AmmoLink {
+        /// Override DATABASE_URL (defaults to env var).
+        #[arg(long, env = "DATABASE_URL")]
+        database_url: String,
+
+        /// Maximum DB connections in pool.
+        #[arg(long, default_value_t = 5)]
+        pool_size: u32,
+    },
+
     /// Import previously-fetched MUL data from local files into the database.
     MulImport {
         /// Directory containing fetched MUL data.
@@ -149,6 +161,12 @@ async fn main() -> anyhow::Result<()> {
             force,
         } => {
             equipment_seed::run(&file, &database_url, pool_size, force).await
+        }
+        Command::AmmoLink {
+            database_url,
+            pool_size,
+        } => {
+            ammo_link::run(&database_url, pool_size).await
         }
         Command::MulFetch {
             output_dir,
