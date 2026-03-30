@@ -56,3 +56,27 @@ output "firewall_id" {
   description = "Database firewall ID"
   value       = twc_firewall.db.id
 }
+
+# --- S3 Storage ---
+
+output "s3_bucket_full_name" {
+  description = "S3 bucket full name (includes TWC prefix)"
+  value       = twc_s3_bucket.resources.full_name
+}
+
+output "s3_bucket_hostname" {
+  description = "S3-compatible endpoint hostname"
+  value       = twc_s3_bucket.resources.hostname
+}
+
+output "s3_access_key" {
+  description = "S3 access key for uploads"
+  value       = twc_s3_bucket.resources.access_key
+  sensitive   = true
+}
+
+output "s3_secret_key" {
+  description = "S3 secret key for uploads"
+  value       = twc_s3_bucket.resources.secret_key
+  sensitive   = true
+}

@@ -355,7 +355,18 @@ terraform plan
 terraform apply
 ```
 
-**3. Get kubeconfig and apply K8s manifests**
+**3. Upload static assets to S3**
+
+The S3 bucket (`resources.battledroids.ru`) hosts static assets such as record sheet images. After `terraform apply` creates the bucket:
+
+```bash
+cd infra
+./scripts/upload-assets.sh ../../battletech-roster-builder/packages/record-sheet/assets
+```
+
+This syncs template and pattern images under `roster/templates/` and `roster/patterns/`, and configures CORS for `roster.battledroids.ru`.
+
+**4. Get kubeconfig and apply K8s manifests**
 
 ```bash
 # Save kubeconfig from Terraform output
@@ -370,7 +381,7 @@ kubectl create secret generic battletech-api-secrets \
 kubectl apply -f k8s/api.yaml
 ```
 
-**4. Run migrations and seed the database**
+**5. Run migrations and seed the database**
 
 Connect to the managed PostgreSQL using the VPC-internal address (from `terraform output db_host`), then:
 

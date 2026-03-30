@@ -17,3 +17,10 @@ resource "twc_dns_rr" "roster" {
   type    = "A"
   value   = var.ingress_ip
 }
+
+resource "twc_dns_rr" "resources" {
+  zone_id = data.twc_dns_zone.main.id
+  name    = "resources"
+  type    = "CNAME"
+  value   = "s3.twcstorage.ru"
+}

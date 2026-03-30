@@ -72,6 +72,14 @@ variable "db_password" {
   sensitive   = true
 }
 
+# --- S3 Storage ---
+
+variable "s3_preset_id" {
+  description = "S3 storage preset ID (see https://api.timeweb.cloud/api/v1/presets/storages). 2667 = S3 Hot 1GB promo (ru-1)"
+  type        = number
+  default     = 2667
+}
+
 # --- DNS ---
 
 variable "domain" {
