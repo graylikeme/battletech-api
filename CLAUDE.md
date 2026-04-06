@@ -50,13 +50,7 @@ cargo sqlx prepare --workspace
 
 There is no test suite yet.
 
-```bash
-# Terraform (infra/)
-cd infra && terraform init      # download providers
-cd infra && terraform validate  # check syntax
-cd infra && terraform plan      # preview changes
-cd infra && terraform apply     # provision infrastructure
-```
+Infrastructure (Terraform, K8s manifests) lives in the separate [battletech-infrastructure](https://github.com/graylikeme/battletech-infrastructure) repo.
 
 ## Environment
 
